@@ -89,15 +89,20 @@ You can have your audio in interleaved or planar format, and as either
 #define TFLAC_IMPLEMENTATION
 #include "tflac.h"
 
+#define BLOCKSIZE 1152
+#define CHANNELS 2
+#define BITDEPTH 16
+#define SAMPLERATE 44100
+
 int main(int argc, const char *argv[]) {
     /* get the size we need to alloc for tflac internal memory */
-    uint32_t memory_size = tflac_size_memory(1152);
+    uint32_t memory_size = tflac_size_memory(BLOCKSIZE);
 
     /* get a chunk for tflac internal memory */
     void* memory = malloc(memory_size);
 
     /* get the size we need to alloc for the output buffer */
-    uint32_t buffer_size = tflac_size_frame(1152, 2, 16);
+    uint32_t buffer_size = tflac_size_frame(BLOCKSIZE, CHANNELS, BITDEPTH);
 
     /* get a hunk for our buffer */
     void* buffer = malloc(buffer_size);
@@ -111,10 +116,10 @@ int main(int argc, const char *argv[]) {
     tflac_init(&t);
 
     /* set some parameters */
-    t.blocksize = 1152;
-    t.samplerate = 44100;
-    t.bitdepth = 16;
-    t.channels = 2;
+    t.blocksize = BLOCKSIZE;
+    t.samplerate = SAMPLERATE;
+    t.bitdepth = BITDEPTH;
+    t.channels = CHANNELS;
 
     /* validate our parameters and tell tflac what memory to use */
     tflac_validate(&t, memory, memory_size);
@@ -130,11 +135,12 @@ int main(int argc, const char *argv[]) {
     /* loop until you run out of audio */
     while(have_audio()) {
 
-        /* hand-waving over this part, you need a 2d array of audio samples */
+        /* hand-waving over this part, here we're using a 2d array of audio samples
+        and assuming it's always BLOCKSIZE samples */
         int32_t** samples = get_some_audio_somehow();
 
         /* encode your audio samples into a FLAC frame */
-        tflac_encode_int32p(&t, 1152, samples, buffer, buffer_size, &buffer_used);
+        tflac_encode_int32p(&t, BLOCKSIZE, samples, buffer, buffer_size, &buffer_used);
 
         /* and write it out */
         fwrite(buffer, 1, buffer_used, output);
