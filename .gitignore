@@ -1,0 +1,6 @@
+*.o
+*.a
+*.so
+*.dll
+*.exe
+/demos/encoder/encoder
