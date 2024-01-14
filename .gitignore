@@ -4,3 +4,4 @@
 *.dll
 *.exe
 /demos/encoder/encoder
+/misc/weird-wav-maker/weird-wav-maker
