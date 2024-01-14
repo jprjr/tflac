@@ -361,9 +361,15 @@ int main(int argc, const char *argv[]) {
     }
 
     input = fopen(inname,"rb");
-    if(input == NULL) goto complete;
+    if(input == NULL) {
+        printf("Unable to open %s for reading\n", inname);
+        goto complete;
+    }
     output = fopen(outname,"wb");
-    if(output == NULL) goto complete;
+    if(output == NULL) {
+        printf("Unable to open %s for writing\n", outname);
+        goto complete;
+    }
 
     TRY( read_u32be(input, &chunk_id) );
     if(chunk_id != CHUNK_ID_RIFF) {
