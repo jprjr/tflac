@@ -50,6 +50,7 @@ int main(int argc, const char *argv[]) {
     unsigned int i = 0;
     unsigned int j = 0;
     unsigned int dump_subframe_types = 0;
+    unsigned int dump_sizes = 0;
     tflac t;
 
     if(argc < 3) {
@@ -79,6 +80,12 @@ int main(int argc, const char *argv[]) {
         return 1;
     }
 
+    if(dump_sizes) {
+        printf("tflac struct size: %u\n", tflac_size());
+        printf("tflac memory size: %u\n", tflac_size_memory(t.blocksize));
+        printf("tflac max frame size: %u\n", tflac_size_frame(t.blocksize,t.channels,t.bitdepth));
+    }
+
     tflac_mem = malloc(tflac_size_memory(t.blocksize));
     if(tflac_mem == NULL) abort();
 
@@ -97,6 +104,8 @@ int main(int argc, const char *argv[]) {
 
     fwrite("fLaC",1,4,output);
 
+    /* we'll write out an empty STREAMINFO block and overwrite later to get MD5 checksum
+     * and sample count */
     tflac_encode_streaminfo(&t, 1, buffer, bufferlen, &bufferused);
     fwrite(buffer,1,bufferused,output);
 
@@ -106,6 +115,14 @@ int main(int argc, const char *argv[]) {
         if(tflac_encode_int16i(&t, frames, samples, buffer, bufferlen, &bufferused) != 0) abort();
         fwrite(buffer,1,bufferused,output);
     }
+
+    /* this will calculate the final MD5 */
+    tflac_finalize(&t);
+
+    /* now we overwrite our original STREAMINFO with an updated one */
+    fseek(output,4,SEEK_SET);
+    tflac_encode_streaminfo(&t, 1, buffer, bufferlen, &bufferused);
+    fwrite(buffer,1,bufferused,output);
 
     if(dump_subframe_types) {
         for(i=0;i<2;i++) {
