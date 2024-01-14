@@ -48,8 +48,6 @@ int main(int argc, const char *argv[]) {
     t.blocksize  = frame_size;
     t.max_partition_order = 4;
 
-    printf("t.bitdepth = %u\n",t.bitdepth);
-
     if(dump_sizes) {
         printf("tflac struct size: %u\n", tflac_size());
         printf("tflac memory size: %u\n", tflac_size_memory(t.blocksize));
