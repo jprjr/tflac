@@ -1,10 +1,8 @@
 # Simple Encoder
 
-Reads in raw audio samples, assuming signed, 16-bit little endian, 2 channels, interleaved.
+Reads in WAVE files, produces basic FLAC files.
 
-You can produce raw audio samples with ffmpeg, then use this encoder to produce a basic
-FLAC file:
+It works with PCM WAVE files and extensible WAVE files with
+the PCM subformat. So basically, most regular WAVE files.
 
-```bash
-ffmpeg -i source.flac -ar 44100 -ac 2 -f s16le pipe:1 | ./encoder - destination.flac
-```
+
