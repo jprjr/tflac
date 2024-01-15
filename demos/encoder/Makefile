@@ -1,6 +1,6 @@
 .PHONY: all clean
 
-CFLAGS = -Wall -Wextra -g -O2 -I../..
+CFLAGS = -Wall -Wextra -Wconversion -Wdouble-promotion -g -O2 -I../..
 LDFLAGS =
 
 all: encoder

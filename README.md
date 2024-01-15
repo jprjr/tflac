@@ -35,6 +35,12 @@ example, if you're building a DLL on Windows you could have:
 
 I suspect in most cases you won't have to set this.
 
+Lastly, a few parts of the code use 64-bit data types. You
+can specify that you want all operations to be 32-bit by
+defining `TFLAC_NO_64BIT`. One warning: this will probably
+fail with bit depths > 28, I haven't thoroughly tested
+that.
+
 ## Usage
 
 ### Get memory and initialize things.

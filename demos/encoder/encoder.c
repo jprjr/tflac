@@ -19,7 +19,7 @@ int main(int argc, const char *argv[]) {
     void *tflac_mem = NULL;
     unsigned int i = 0;
     unsigned int j = 0;
-    unsigned int dump_subframe_types = 0;
+    unsigned int dump_subframe_types = 1;
     unsigned int dump_sizes = 0;
     uint32_t frame_size = 1152;
     wav_decoder w = WAV_DECODER_ZERO;
@@ -47,8 +47,11 @@ int main(int argc, const char *argv[]) {
     t.bitdepth   = w.bitdepth;
     t.blocksize  = frame_size;
     t.max_partition_order = 4;
+    t.enable_md5 = 0;
 
     if(dump_sizes) {
+        printf("tflac_md5 struct size: %u\n",sizeof(tflac_md5));
+        printf("tflac_bitwriter struct size: %u\n",sizeof(tflac_bitwriter));
         printf("tflac struct size: %u\n", tflac_size());
         printf("tflac memory size: %u\n", tflac_size_memory(t.blocksize));
         printf("tflac max frame size: %u\n", tflac_size_frame(t.blocksize,t.channels,t.bitdepth));
@@ -96,14 +99,19 @@ int main(int argc, const char *argv[]) {
     tflac_encode_streaminfo(&t, 1, buffer, bufferlen, &bufferused);
     fwrite(buffer,1,bufferused,output);
 
+#ifndef TFLAC_DISABLE_COUNTERS
     if(dump_subframe_types) {
-        for(i=0;i<2;i++) {
-            printf("channel %u:\n",i+1);
+        printf("Subframe type counts:\n");
+        for(i=0;i<t.channels;i++) {
+            printf("  channel %u:\n",i+1);
             for(j=0;j<TFLAC_SUBFRAME_TYPE_COUNT;j++) {
-                printf("  %s: %" PRIu64 "\n", tflac_subframe_types[j], t.subframe_type_counts[i][j]);
+                printf("    %s: %" PRIu64 "\n", tflac_subframe_types[j], t.subframe_type_counts[i][j]);
             }
         }
     }
+#else
+    (void)dump_subframe_types;
+#endif
 
     fclose(input);
     fclose(output);
