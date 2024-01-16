@@ -47,7 +47,6 @@ int main(int argc, const char *argv[]) {
     t.bitdepth   = w.bitdepth;
     t.blocksize  = frame_size;
     t.max_partition_order = 4;
-    t.enable_md5 = 0;
 
     if(dump_sizes) {
         printf("tflac_md5 struct size: %u\n",sizeof(tflac_md5));
