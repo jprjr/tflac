@@ -1429,7 +1429,7 @@ int tflac_encode_residuals(tflac* t, uint8_t predictor_order, uint8_t partition_
     }
 
     if( (r = tflac_bitwriter_add(&t->bw, 6,
-        ( (t->max_rice_value > 14 ? 0x20 : 0x00) ) | partition_order)) != 0) return r;
+        ( (t->max_rice_value > 14 ? 0x10 : 0x00) ) | partition_order)) != 0) return r;
 
     for(i=0;i < (1ULL << partition_order) ; i++) {
 
