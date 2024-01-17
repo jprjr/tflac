@@ -1315,27 +1315,38 @@ TFLAC_PRIVATE void tflac_calculate_fixed_residuals(tflac *t) {
     }
 
     /* handle the first 4 orders manually manually */
-    residuals_1[0] = residuals_0[1] - residuals_0[0];
+    residuals_1[0] = residuals_0[0];
+    residuals_1[1] = residuals_0[1] - residuals_0[0];
+    residuals_1[2] = residuals_0[2] - residuals_0[1];
+    residuals_1[3] = residuals_0[3] - residuals_0[2];
 
-    residuals_1[1] = residuals_0[2] - residuals_0[1];
-    residuals_2[0] = residuals_0[2] - (2 * residuals_0[1]) + residuals_0[0];
+    residuals_2[0] = residuals_0[0];
+    residuals_2[1] = residuals_0[1];
+    residuals_2[2] = residuals_0[2] - (2 * residuals_0[1]) + residuals_0[0];
+    residuals_2[3] = residuals_0[3] - (2 * residuals_0[2]) + residuals_0[1];
 
-    residuals_1[2] = residuals_0[3] - residuals_0[2];
-    residuals_2[1] = residuals_0[3] - (2 * residuals_0[2]) + residuals_0[1];
-    residuals_3[0] = residuals_0[3] - (3 * residuals_0[2]) + (3 * residuals_0[1]) - residuals_0[0];
+    residuals_3[0] = residuals_0[0];
+    residuals_3[1] = residuals_0[1];
+    residuals_3[2] = residuals_0[2];
+    residuals_3[3] = residuals_0[3] - (3 * residuals_0[2]) + (3 * residuals_0[1]) - residuals_0[0];
+
+    residuals_4[0] = residuals_0[0];
+    residuals_4[1] = residuals_0[1];
+    residuals_4[2] = residuals_0[2];
+    residuals_4[3] = residuals_0[3];
 
     /* now we can do the rest in a loop */
     for(i=4;i<t->cur_blocksize;i++) {
-        residuals_1[i-1] = residuals_0[i] - residuals_0[i-1];
-        residuals_2[i-2] = residuals_0[i] - (2 * residuals_0[i-1]) + residuals_0[i-2];
-        residuals_3[i-3] = residuals_0[i] - (3 * residuals_0[i-1]) + (3 * residuals_0[i-2]) - residuals_0[i-3];
-        residuals_4[i-4] = residuals_0[i] - (4 * residuals_0[i-1]) + (6 * residuals_0[i-2]) - (4 * residuals_0[i-3]) + residuals_0[i-4];
+        residuals_1[i] = residuals_0[i] - residuals_0[i-1];
+        residuals_2[i] = residuals_0[i] - (2 * residuals_0[i-1]) + residuals_0[i-2];
+        residuals_3[i] = residuals_0[i] - (3 * residuals_0[i-1]) + (3 * residuals_0[i-2]) - residuals_0[i-3];
+        residuals_4[i] = residuals_0[i] - (4 * residuals_0[i-1]) + (6 * residuals_0[i-2]) - (4 * residuals_0[i-3]) + residuals_0[i-4];
 
-        residual_abs[0] = residuals_0[i]   < 0 ? -(tflac_uint)residuals_0[i]   : (tflac_uint)residuals_0[i];
-        residual_abs[1] = residuals_1[i-1] < 0 ? -(tflac_uint)residuals_1[i-1] : (tflac_uint)residuals_1[i-1];
-        residual_abs[2] = residuals_2[i-2] < 0 ? -(tflac_uint)residuals_2[i-2] : (tflac_uint)residuals_2[i-2];
-        residual_abs[3] = residuals_3[i-3] < 0 ? -(tflac_uint)residuals_3[i-3] : (tflac_uint)residuals_3[i-3];
-        residual_abs[4] = residuals_4[i-4] < 0 ? -(tflac_uint)residuals_4[i-4] : (tflac_uint)residuals_4[i-4];
+        residual_abs[0] = residuals_0[i] < 0 ? -(tflac_uint)residuals_0[i] : (tflac_uint)residuals_0[i];
+        residual_abs[1] = residuals_1[i] < 0 ? -(tflac_uint)residuals_1[i] : (tflac_uint)residuals_1[i];
+        residual_abs[2] = residuals_2[i] < 0 ? -(tflac_uint)residuals_2[i] : (tflac_uint)residuals_2[i];
+        residual_abs[3] = residuals_3[i] < 0 ? -(tflac_uint)residuals_3[i] : (tflac_uint)residuals_3[i];
+        residual_abs[4] = residuals_4[i] < 0 ? -(tflac_uint)residuals_4[i] : (tflac_uint)residuals_4[i];
 
         residual_overflow[0] |= (t->residual_errors[0] += residual_abs[0]) < residual_abs[0];
         residual_overflow[1] |= (t->residual_errors[1] += residual_abs[1]) < residual_abs[1];
@@ -1401,17 +1412,11 @@ int tflac_encode_residuals(tflac* t, uint8_t predictor_order, uint8_t partition_
 
     uint8_t w = (uint8_t)t->wasted_bits;
     uint32_t partition_length = 0;
-    uint32_t offset = 0;
+    uint32_t offset = predictor_order;
     uint32_t msb = 0;
     uint32_t lsb = 0;
     uint32_t s = t->bw.pos;
-    const tflac_int* residuals[5];
-
-    residuals[0] = TFLAC_ASSUME_ALIGNED(t->residuals[0], 16);
-    residuals[1] = TFLAC_ASSUME_ALIGNED(t->residuals[1], 16);
-    residuals[2] = TFLAC_ASSUME_ALIGNED(t->residuals[2], 16);
-    residuals[3] = TFLAC_ASSUME_ALIGNED(t->residuals[3], 16);
-    residuals[4] = TFLAC_ASSUME_ALIGNED(t->residuals[4], 16);
+    const tflac_int* residuals = TFLAC_ASSUME_ALIGNED(t->residuals[predictor_order], 16);
 
 
     if( (r = tflac_bitwriter_add(&t->bw, 8, 0x10 | (predictor_order << 1) | (!!w))) != 0) return r;
@@ -1419,7 +1424,7 @@ int tflac_encode_residuals(tflac* t, uint8_t predictor_order, uint8_t partition_
 
 
     for(i=0;i<predictor_order;i++) {
-        if( (r = tflac_bitwriter_add(&t->bw, (uint8_t)(t->bitdepth - t->wasted_bits), (tflac_uint)residuals[0][i])) != 0) return r;
+        if( (r = tflac_bitwriter_add(&t->bw, (uint8_t)(t->bitdepth - t->wasted_bits), (tflac_uint)residuals[i])) != 0) return r;
     }
 
     if( (r = tflac_bitwriter_add(&t->bw, 6,
@@ -1432,7 +1437,7 @@ int tflac_encode_residuals(tflac* t, uint8_t predictor_order, uint8_t partition_
 
         sum = 0;
         for(j=0;j<partition_length;j++) {
-            sum += residuals[predictor_order][j+offset] < 0 ? -(tflac_uint)residuals[predictor_order][j+offset] : (tflac_uint)residuals[predictor_order][j+offset];
+            sum += residuals[j+offset] < 0 ? -(tflac_uint)residuals[j+offset] : (tflac_uint)residuals[j+offset];
         }
 
         /* find the rice parameter for this partition */
@@ -1448,9 +1453,9 @@ int tflac_encode_residuals(tflac* t, uint8_t predictor_order, uint8_t partition_
         }
 
         for(j=0;j<partition_length;j++) {
-            v = residuals[predictor_order][j+offset] < 0 ?
-                (((tflac_uint) -residuals[predictor_order][j+offset] - 1) << 1) + 1:
-                ((tflac_uint)residuals[predictor_order][j+offset]) << 1;
+            v = residuals[j+offset] < 0 ?
+                (((tflac_uint) -residuals[j+offset] - 1) << 1) + 1:
+                ((tflac_uint)residuals[j+offset]) << 1;
             msb = (uint32_t)(v >> rice);
             lsb = (uint32_t)(v - (msb << rice));
             if( (r = tflac_bitwriter_zeroes(&t->bw, msb)) != 0) return r;
