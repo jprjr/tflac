@@ -1327,7 +1327,8 @@ int tflac_encode_residuals(tflac* t, uint8_t predictor_order, uint8_t partition_
         }
 
         /* find the rice parameter for this partition */
-        while( partition_length << (rice + 1) < sum ) {
+        rice = 0;
+        while( (partition_length << rice) < sum ) {
             if(rice == t->max_rice_value) break;
             rice++;
         }
