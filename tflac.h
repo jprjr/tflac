@@ -625,26 +625,20 @@ TFLAC_PRIVATE void tflac_analyze_samples_int16_interleaved(tflac*, uint32_t chan
 TFLAC_PRIVATE void tflac_analyze_samples_int32_planar(tflac*, uint32_t channel, const int32_t** samples);
 TFLAC_PRIVATE void tflac_analyze_samples_int32_interleaved(tflac*, uint32_t channel, const int32_t* samples);
 
-__attribute__((noinline))
 TFLAC_PRIVATE void tflac_calculate_fixed_residuals(tflac*);
 
 /* encodes a constant subframe iff value is constant, this should always be tried first */
-__attribute__((noinline))
 TFLAC_PRIVATE int tflac_encode_subframe_constant(tflac*);
 
 /* encodes a fixed subframe only if the length < verbatim */
-__attribute__((noinline))
 TFLAC_PRIVATE int tflac_encode_subframe_fixed(tflac*);
 
 /* encodes a subframe verbatim, only fails if the buffer runs out of room */
-__attribute__((noinline))
 TFLAC_PRIVATE int tflac_encode_subframe_verbatim(tflac*);
 
 /* encodes a subframe, tries constant, fixed, then verbatim */
-__attribute__((noinline))
 TFLAC_PRIVATE int tflac_encode_subframe(tflac*, uint8_t channel);
 
-__attribute__((noinline))
 TFLAC_PRIVATE int tflac_encode_residuals(tflac*, uint8_t predictor_order, uint8_t partition_order);
 
 TFLAC_PRIVATE const uint8_t tflac_bitwriter_crc8_table[256] = {
