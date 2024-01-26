@@ -31,10 +31,10 @@ static void test_reset(void) {
 
 static void* align_ptr(void* ptr) {
     tflac_u8 *d;
-    tflac_u32 p1, p2;
+    tflac_uptr p1, p2;
 
-    p1 = (tflac_u32)ptr;
-    p2 = (p1 + 15) & ~(tflac_u32)0x0F;
+    p1 = (tflac_uptr)ptr;
+    p2 = (p1 + 15) & ~(tflac_uptr)0x0F;
     d = (tflac_u8*)ptr;
 
     return &d[p2 - p1];
@@ -102,20 +102,6 @@ int main(void) {
     samples = align_ptr(samples_unaligned);
     residuals = align_ptr(residuals_unaligned);
 
-#if 0
-    wide_times[0] = time_cfr(tflac_cfr_order0_wide_std);
-    wide_times[1] = time_cfr(tflac_cfr_order1_wide_std);
-    wide_times[2] = time_cfr(tflac_cfr_order2_wide_std);
-    wide_times[3] = time_cfr(tflac_cfr_order3_wide_std);
-    wide_times[4] = time_cfr(tflac_cfr_order4_wide_std);
-
-    sse2_times[0] = time_cfr(tflac_cfr_order0_sse2);
-    sse2_times[1] = time_cfr(tflac_cfr_order1_sse2);
-    sse2_times[2] = time_cfr(tflac_cfr_order2_sse2);
-    sse2_times[3] = time_cfr(tflac_cfr_order3_sse2);
-    sse2_times[4] = time_cfr(tflac_cfr_order4_sse2);
-#endif
-
     printf(".______________________________________________________________________________.\n");
     printf("|%6s|%13s|%13s|%13s|%14s|%14s|\n","","order0","order1","order2","order3","order4");
     printf("|------|-------------|-------------|-------------|--------------|--------------|\n");
@@ -129,7 +115,7 @@ int main(void) {
     printf("|%6s|%13u|%13u|%13u|%14u|%14u|\n",
       "std", std_times[0], std_times[1], std_times[2], std_times[3], std_times[4]);
 
-    wide_times[0] = time_cfr(tflac_cfr_order0_wide_std);
+    wide_times[0] = std_times[0];
     wide_times[1] = time_cfr(tflac_cfr_order1_wide_std);
     wide_times[2] = time_cfr(tflac_cfr_order2_wide_std);
     wide_times[3] = time_cfr(tflac_cfr_order3_wide_std);
