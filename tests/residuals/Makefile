@@ -1,6 +1,6 @@
 .PHONY: all clean test time
 
-CFLAGS = -I../.. -Wall -Wextra -g -O3
+CFLAGS = -I../.. -Wall -Wextra -g -O2
 
 all: test-64bit test-32bit time-64bit time-32bit
 
@@ -16,16 +16,16 @@ time: time-64bit time-32bit
 	echo "Emulated 64 bit integers"
 	./time-32bit
 
-test-64bit: test.c
+test-64bit: test.c ../../tflac.h
 	$(CC) $(CFLAGS) -o $@ $^
 
-test-32bit: test.c
+test-32bit: test.c ../../tflac.h
 	$(CC) $(CFLAGS) -DTFLAC_32BIT_ONLY -o $@ $^
 
-time-64bit: time.c
+time-64bit: time.c ../../tflac.h
 	$(CC) $(CFLAGS) -o $@ $^
 
-time-32bit: time.c
+time-32bit: time.c ../../tflac.h
 	$(CC) $(CFLAGS) -DTFLAC_32BIT_ONLY -o $@ $^
 
 clean:

@@ -605,6 +605,11 @@ tflac_u32 tflac_get_enable_md5(const tflac* t);
 #endif
 #endif
 
+#ifdef TFLAC_FORCE_SSE2
+#undef TFLAC_DISABLE_SSE2
+#define TFLAC_ENABLE_SSE2
+#endif
+
 #ifndef TFLAC_DISABLE_SSE2
 /* TODO check for compiler support */
 #ifdef __SSE2__
@@ -990,6 +995,37 @@ TFLAC_PRIVATE void (*tflac_cfr_order4)(
     tflac_u64* TFLAC_RESTRICT residual_error
 );
 
+TFLAC_PRIVATE void (*tflac_cfr_order0_wide)(
+    tflac_u32 blocksize,
+    const tflac_s32* TFLAC_RESTRICT samples,
+    tflac_s32* TFLAC_RESTRICT residuals,
+    tflac_u64* TFLAC_RESTRICT residual_error
+);
+TFLAC_PRIVATE void (*tflac_cfr_order1_wide)(
+    tflac_u32 blocksize,
+    const tflac_s32* TFLAC_RESTRICT samples,
+    tflac_s32* TFLAC_RESTRICT residuals,
+    tflac_u64* TFLAC_RESTRICT residual_error
+);
+TFLAC_PRIVATE void (*tflac_cfr_order2_wide)(
+    tflac_u32 blocksize,
+    const tflac_s32* TFLAC_RESTRICT samples,
+    tflac_s32* TFLAC_RESTRICT residuals,
+    tflac_u64* TFLAC_RESTRICT residual_error
+);
+TFLAC_PRIVATE void (*tflac_cfr_order3_wide)(
+    tflac_u32 blocksize,
+    const tflac_s32* TFLAC_RESTRICT samples,
+    tflac_s32* TFLAC_RESTRICT residuals,
+    tflac_u64* TFLAC_RESTRICT residual_error
+);
+TFLAC_PRIVATE void (*tflac_cfr_order4_wide)(
+    tflac_u32 blocksize,
+    const tflac_s32* TFLAC_RESTRICT samples,
+    tflac_s32* TFLAC_RESTRICT residuals,
+    tflac_u64* TFLAC_RESTRICT residual_error
+);
+
 TFLAC_PRIVATE void tflac_cfr_order0_std(
     tflac_u32 blocksize,
     const tflac_s32* TFLAC_RESTRICT samples,
@@ -1052,29 +1088,36 @@ TFLAC_PRIVATE void tflac_cfr_order4_sse2(
     tflac_s32* TFLAC_RESTRICT residuals,
     tflac_u64* TFLAC_RESTRICT residual_error
 );
+
 #endif
 
 /* variant functions that convert samples to 64-bit then calculates,
  * used when bps >= 32, 31, 30, 29 */
-TFLAC_PRIVATE void tflac_cfr_order1_64bit(
+TFLAC_PRIVATE void tflac_cfr_order0_wide_std(
     tflac_u32 blocksize,
     const tflac_s32* TFLAC_RESTRICT samples,
     tflac_s32* TFLAC_RESTRICT residuals,
     tflac_u64* TFLAC_RESTRICT residual_error
 );
-TFLAC_PRIVATE void tflac_cfr_order2_64bit(
+TFLAC_PRIVATE void tflac_cfr_order1_wide_std(
     tflac_u32 blocksize,
     const tflac_s32* TFLAC_RESTRICT samples,
     tflac_s32* TFLAC_RESTRICT residuals,
     tflac_u64* TFLAC_RESTRICT residual_error
 );
-TFLAC_PRIVATE void tflac_cfr_order3_64bit(
+TFLAC_PRIVATE void tflac_cfr_order2_wide_std(
     tflac_u32 blocksize,
     const tflac_s32* TFLAC_RESTRICT samples,
     tflac_s32* TFLAC_RESTRICT residuals,
     tflac_u64* TFLAC_RESTRICT residual_error
 );
-TFLAC_PRIVATE void tflac_cfr_order4_64bit(
+TFLAC_PRIVATE void tflac_cfr_order3_wide_std(
+    tflac_u32 blocksize,
+    const tflac_s32* TFLAC_RESTRICT samples,
+    tflac_s32* TFLAC_RESTRICT residuals,
+    tflac_u64* TFLAC_RESTRICT residual_error
+);
+TFLAC_PRIVATE void tflac_cfr_order4_wide_std(
     tflac_u32 blocksize,
     const tflac_s32* TFLAC_RESTRICT samples,
     tflac_s32* TFLAC_RESTRICT residuals,
@@ -1828,7 +1871,6 @@ TFLAC_PRIVATE void tflac_cfr_order4_std(
 #endif /* X64 */
 #endif /* 32BIT */
 
-
 TFLAC_PRIVATE void tflac_cfr_order0_sse2(
       tflac_u32 blocksize,
       const tflac_s32* TFLAC_RESTRICT _samples,
@@ -2173,7 +2215,7 @@ TFLAC_PRIVATE void tflac_cfr_order4_sse2(
 }
 #endif /* TFLAC_ENABLE_SSE2 */
 
-TFLAC_PRIVATE void tflac_cfr_order0_64bit(
+TFLAC_PRIVATE void tflac_cfr_order0_wide_std(
       tflac_u32 blocksize,
       const tflac_s32* TFLAC_RESTRICT _samples,
       tflac_s32* TFLAC_RESTRICT _residuals,
@@ -2187,19 +2229,18 @@ TFLAC_PRIVATE void tflac_cfr_order0_64bit(
     residual_err = TFLAC_U64_ZERO;
 
     for(i=0;i<4;i++) {
-        residual_abs = samples[i] < 0 ? (tflac_u32)-samples[i] : (tflac_u32)samples[i];
-        if(residual_abs > INT32_MAX) {
+        if(samples[i] == INT32_MIN) {
             *residual_error = TFLAC_U64_MAX;
             return;
         }
     }
 
     for(i=4;i<blocksize;i++) {
-        residual_abs = samples[i] < 0 ? (tflac_u32)-samples[i] : (tflac_u32)samples[i];
-        if(residual_abs > INT32_MAX) {
+        if(samples[i] == INT32_MIN) {
             *residual_error = TFLAC_U64_MAX;
             return;
         }
+        residual_abs = samples[i] < 0 ? (tflac_u32)-samples[i] : (tflac_u32)samples[i];
         TFLAC_U64_ADD_WORD(residual_err,residual_abs);
     }
 
@@ -2207,7 +2248,7 @@ TFLAC_PRIVATE void tflac_cfr_order0_64bit(
     (void)_residuals;
 }
 
-TFLAC_PRIVATE void tflac_cfr_order1_64bit(
+TFLAC_PRIVATE void tflac_cfr_order1_wide_std(
       tflac_u32 blocksize,
       const tflac_s32* TFLAC_RESTRICT _samples,
       tflac_s32* TFLAC_RESTRICT _residuals,
@@ -2263,7 +2304,7 @@ TFLAC_PRIVATE void tflac_cfr_order1_64bit(
     *residual_error = residual_err;
 }
 
-TFLAC_PRIVATE void tflac_cfr_order2_64bit(
+TFLAC_PRIVATE void tflac_cfr_order2_wide_std(
       tflac_u32 blocksize,
       const tflac_s32* TFLAC_RESTRICT _samples,
       tflac_s32* TFLAC_RESTRICT _residuals,
@@ -2324,7 +2365,7 @@ TFLAC_PRIVATE void tflac_cfr_order2_64bit(
     *residual_error = residual_err;
 }
 
-TFLAC_PRIVATE void tflac_cfr_order3_64bit(
+TFLAC_PRIVATE void tflac_cfr_order3_wide_std(
       tflac_u32 blocksize,
       const tflac_s32* TFLAC_RESTRICT _samples,
       tflac_s32* TFLAC_RESTRICT _residuals,
@@ -2399,7 +2440,7 @@ TFLAC_PRIVATE void tflac_cfr_order3_64bit(
     *residual_error = residual_err;
 }
 
-TFLAC_PRIVATE void tflac_cfr_order4_64bit(
+TFLAC_PRIVATE void tflac_cfr_order4_wide_std(
       tflac_u32 blocksize,
       const tflac_s32* TFLAC_RESTRICT _samples,
       tflac_s32* TFLAC_RESTRICT _residuals,
@@ -2917,19 +2958,20 @@ int tflac_validate(tflac *t, void* ptr, tflac_u32 len) {
 
     switch(t->bitdepth) {
         case 32: {
-            t->calculate_order[1] = tflac_cfr_order1_64bit;
+            t->calculate_order[0] = tflac_cfr_order0_wide;
+            t->calculate_order[1] = tflac_cfr_order1_wide;
         }
         /* fall-through */
         case 31: {
-            t->calculate_order[2] = tflac_cfr_order2_64bit;
+            t->calculate_order[2] = tflac_cfr_order2_wide;
         }
         /* fall-through */
         case 30: {
-            t->calculate_order[3] = tflac_cfr_order3_64bit;
+            t->calculate_order[3] = tflac_cfr_order3_wide;
         }
         /* fall-through */
         case 29: {
-            t->calculate_order[4] = tflac_cfr_order4_64bit;
+            t->calculate_order[4] = tflac_cfr_order4_wide;
         }
         /* fall-through */
         default: break;
@@ -3556,6 +3598,67 @@ TFLAC_PRIVATE const tflac_u16 tflac_crc16_tables[8][256] = {
   },
 };
 
+#ifdef TFLAC_FORCE_SSE2
+TFLAC_PRIVATE void (*tflac_cfr_order0)(
+    tflac_u32 blocksize,
+    const tflac_s32* TFLAC_RESTRICT,
+    tflac_s32* TFLAC_RESTRICT,
+    tflac_u64* TFLAC_RESTRICT) = tflac_cfr_order0_sse2;
+
+TFLAC_PRIVATE void (*tflac_cfr_order1)(
+    tflac_u32 blocksize,
+    const tflac_s32* TFLAC_RESTRICT,
+    tflac_s32* TFLAC_RESTRICT,
+    tflac_u64* TFLAC_RESTRICT) = tflac_cfr_order1_sse2;
+
+TFLAC_PRIVATE void (*tflac_cfr_order2)(
+    tflac_u32 blocksize,
+    const tflac_s32* TFLAC_RESTRICT,
+    tflac_s32* TFLAC_RESTRICT,
+    tflac_u64* TFLAC_RESTRICT) = tflac_cfr_order2_sse2;
+
+TFLAC_PRIVATE void (*tflac_cfr_order3)(
+    tflac_u32 blocksize,
+    const tflac_s32* TFLAC_RESTRICT,
+    tflac_s32* TFLAC_RESTRICT,
+    tflac_u64* TFLAC_RESTRICT) = tflac_cfr_order3_sse2;
+
+TFLAC_PRIVATE void (*tflac_cfr_order4)(
+    tflac_u32 blocksize,
+    const tflac_s32* TFLAC_RESTRICT,
+    tflac_s32* TFLAC_RESTRICT,
+    tflac_u64* TFLAC_RESTRICT) = tflac_cfr_order4_sse2;
+
+TFLAC_PRIVATE void (*tflac_cfr_order0_wide)(
+    tflac_u32 blocksize,
+    const tflac_s32* TFLAC_RESTRICT,
+    tflac_s32* TFLAC_RESTRICT,
+    tflac_u64* TFLAC_RESTRICT) = tflac_cfr_order0_wide_std;
+
+TFLAC_PRIVATE void (*tflac_cfr_order1_wide)(
+    tflac_u32 blocksize,
+    const tflac_s32* TFLAC_RESTRICT,
+    tflac_s32* TFLAC_RESTRICT,
+    tflac_u64* TFLAC_RESTRICT) = tflac_cfr_order1_wide_std;
+
+TFLAC_PRIVATE void (*tflac_cfr_order2_wide)(
+    tflac_u32 blocksize,
+    const tflac_s32* TFLAC_RESTRICT,
+    tflac_s32* TFLAC_RESTRICT,
+    tflac_u64* TFLAC_RESTRICT) = tflac_cfr_order2_wide_std;
+
+TFLAC_PRIVATE void (*tflac_cfr_order3_wide)(
+    tflac_u32 blocksize,
+    const tflac_s32* TFLAC_RESTRICT,
+    tflac_s32* TFLAC_RESTRICT,
+    tflac_u64* TFLAC_RESTRICT) = tflac_cfr_order3_wide_std;
+
+TFLAC_PRIVATE void (*tflac_cfr_order4_wide)(
+    tflac_u32 blocksize,
+    const tflac_s32* TFLAC_RESTRICT,
+    tflac_s32* TFLAC_RESTRICT,
+    tflac_u64* TFLAC_RESTRICT) = tflac_cfr_order4_wide_std;
+#else
 TFLAC_PRIVATE void (*tflac_cfr_order0)(
     tflac_u32 blocksize,
     const tflac_s32* TFLAC_RESTRICT,
@@ -3585,6 +3688,37 @@ TFLAC_PRIVATE void (*tflac_cfr_order4)(
     const tflac_s32* TFLAC_RESTRICT,
     tflac_s32* TFLAC_RESTRICT,
     tflac_u64* TFLAC_RESTRICT) = tflac_cfr_order4_std;
+
+TFLAC_PRIVATE void (*tflac_cfr_order0_wide)(
+    tflac_u32 blocksize,
+    const tflac_s32* TFLAC_RESTRICT,
+    tflac_s32* TFLAC_RESTRICT,
+    tflac_u64* TFLAC_RESTRICT) = tflac_cfr_order0_wide_std;
+
+TFLAC_PRIVATE void (*tflac_cfr_order1_wide)(
+    tflac_u32 blocksize,
+    const tflac_s32* TFLAC_RESTRICT,
+    tflac_s32* TFLAC_RESTRICT,
+    tflac_u64* TFLAC_RESTRICT) = tflac_cfr_order1_wide_std;
+
+TFLAC_PRIVATE void (*tflac_cfr_order2_wide)(
+    tflac_u32 blocksize,
+    const tflac_s32* TFLAC_RESTRICT,
+    tflac_s32* TFLAC_RESTRICT,
+    tflac_u64* TFLAC_RESTRICT) = tflac_cfr_order2_wide_std;
+
+TFLAC_PRIVATE void (*tflac_cfr_order3_wide)(
+    tflac_u32 blocksize,
+    const tflac_s32* TFLAC_RESTRICT,
+    tflac_s32* TFLAC_RESTRICT,
+    tflac_u64* TFLAC_RESTRICT) = tflac_cfr_order3_wide_std;
+
+TFLAC_PRIVATE void (*tflac_cfr_order4_wide)(
+    tflac_u32 blocksize,
+    const tflac_s32* TFLAC_RESTRICT,
+    tflac_s32* TFLAC_RESTRICT,
+    tflac_u64* TFLAC_RESTRICT) = tflac_cfr_order4_wide_std;
+#endif
 
 TFLAC_PUBLIC
 void tflac_detect_cpu(void) {

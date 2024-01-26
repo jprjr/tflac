@@ -103,11 +103,11 @@ int main(void) {
     residuals = align_ptr(residuals_unaligned);
 
 #if 0
-    wide_times[0] = time_cfr(tflac_cfr_order0_64bit);
-    wide_times[1] = time_cfr(tflac_cfr_order1_64bit);
-    wide_times[2] = time_cfr(tflac_cfr_order2_64bit);
-    wide_times[3] = time_cfr(tflac_cfr_order3_64bit);
-    wide_times[4] = time_cfr(tflac_cfr_order4_64bit);
+    wide_times[0] = time_cfr(tflac_cfr_order0_wide_std);
+    wide_times[1] = time_cfr(tflac_cfr_order1_wide_std);
+    wide_times[2] = time_cfr(tflac_cfr_order2_wide_std);
+    wide_times[3] = time_cfr(tflac_cfr_order3_wide_std);
+    wide_times[4] = time_cfr(tflac_cfr_order4_wide_std);
 
     sse2_times[0] = time_cfr(tflac_cfr_order0_sse2);
     sse2_times[1] = time_cfr(tflac_cfr_order1_sse2);
@@ -129,14 +129,14 @@ int main(void) {
     printf("|%6s|%13u|%13u|%13u|%14u|%14u|\n",
       "std", std_times[0], std_times[1], std_times[2], std_times[3], std_times[4]);
 
-    wide_times[0] = time_cfr(tflac_cfr_order0_64bit);
-    wide_times[1] = time_cfr(tflac_cfr_order1_64bit);
-    wide_times[2] = time_cfr(tflac_cfr_order2_64bit);
-    wide_times[3] = time_cfr(tflac_cfr_order3_64bit);
-    wide_times[4] = time_cfr(tflac_cfr_order4_64bit);
+    wide_times[0] = time_cfr(tflac_cfr_order0_wide_std);
+    wide_times[1] = time_cfr(tflac_cfr_order1_wide_std);
+    wide_times[2] = time_cfr(tflac_cfr_order2_wide_std);
+    wide_times[3] = time_cfr(tflac_cfr_order3_wide_std);
+    wide_times[4] = time_cfr(tflac_cfr_order4_wide_std);
 
     printf("|%6s|%13u|%13u|%13u|%14u|%14u|\n",
-      "64bit", wide_times[0], wide_times[1], wide_times[2], wide_times[3], wide_times[4]);
+      "wstd", wide_times[0], wide_times[1], wide_times[2], wide_times[3], wide_times[4]);
 
     sse2_times[0] = time_cfr(tflac_cfr_order0_sse2);
     sse2_times[1] = time_cfr(tflac_cfr_order1_sse2);

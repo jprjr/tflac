@@ -248,87 +248,87 @@ static int test_order4_results(void) {
 }
 
 
-static int test_order0_64bit_zero(void) {
+static int test_order0_wide_std_zero(void) {
     int r;
 
     test_reset();
 
-    tflac_cfr_order0_64bit(BLOCKSIZE,samples,residuals,&result);
+    tflac_cfr_order0_wide_std(BLOCKSIZE,samples,residuals,&result);
 
     r = !TFLAC_U64_EQ(result,TFLAC_U64_ZERO);
 
-    printf("test_order0_64bit_zero: %s\n",passfail[r]);
+    printf("test_order0_wide_std_zero: %s\n",passfail[r]);
     return r;
 }
 
-static int test_order1_64bit_zero(void) {
+static int test_order1_wide_std_zero(void) {
     int r;
 
     test_reset();
 
-    tflac_cfr_order1_64bit(BLOCKSIZE,samples,residuals,&result);
+    tflac_cfr_order1_wide_std(BLOCKSIZE,samples,residuals,&result);
 
     r = !TFLAC_U64_EQ(result,TFLAC_U64_ZERO);
 
-    printf("test_order1_64bit_zero: %s\n",passfail[r]);
+    printf("test_order1_wide_std_zero: %s\n",passfail[r]);
     return r;
 }
 
-static int test_order2_64bit_zero(void) {
+static int test_order2_wide_std_zero(void) {
     int r;
 
     test_reset();
 
-    tflac_cfr_order2_64bit(BLOCKSIZE,samples,residuals,&result);
+    tflac_cfr_order2_wide_std(BLOCKSIZE,samples,residuals,&result);
 
     r = !TFLAC_U64_EQ(result,TFLAC_U64_ZERO);
 
-    printf("test_order2_64bit_zero: %s\n",passfail[r]);
+    printf("test_order2_wide_std_zero: %s\n",passfail[r]);
     return r;
 }
 
-static int test_order3_64bit_zero(void) {
+static int test_order3_wide_std_zero(void) {
     int r;
 
     test_reset();
 
-    tflac_cfr_order3_64bit(BLOCKSIZE,samples,residuals,&result);
+    tflac_cfr_order3_wide_std(BLOCKSIZE,samples,residuals,&result);
 
     r = !TFLAC_U64_EQ(result,TFLAC_U64_ZERO);
 
-    printf("test_order3_64bit_zero: %s\n",passfail[r]);
+    printf("test_order3_wide_std_zero: %s\n",passfail[r]);
     return r;
 }
 
-static int test_order4_64bit_zero(void) {
+static int test_order4_wide_std_zero(void) {
     int r;
 
     test_reset();
 
-    tflac_cfr_order4_64bit(BLOCKSIZE,samples,residuals,&result);
+    tflac_cfr_order4_wide_std(BLOCKSIZE,samples,residuals,&result);
 
     r = !TFLAC_U64_EQ(result,TFLAC_U64_ZERO);
 
-    printf("test_order4_64bit_zero: %s\n",passfail[r]);
+    printf("test_order4_wide_std_zero: %s\n",passfail[r]);
     return r;
 }
 
-static int test_order0_64bit_max(void) {
+static int test_order0_wide_std_max(void) {
     int r;
 
     test_reset();
 
     samples[0] = INT32_MIN;
 
-    tflac_cfr_order0_64bit(BLOCKSIZE,samples,residuals,&result);
+    tflac_cfr_order0_wide_std(BLOCKSIZE,samples,residuals,&result);
 
     r = !TFLAC_U64_EQ(result,TFLAC_U64_MAX);
 
-    printf("test_order0_64bit_max: %s\n",passfail[r]);
+    printf("test_order0_wide_std_max: %s\n",passfail[r]);
     return r;
 }
 
-static int test_order1_64bit_max(void) {
+static int test_order1_wide_std_max(void) {
     int r;
 
     test_reset();
@@ -336,15 +336,15 @@ static int test_order1_64bit_max(void) {
     samples[0] = INT32_MIN;
     samples[1] = INT32_MAX;
 
-    tflac_cfr_order1_64bit(BLOCKSIZE,samples,residuals,&result);
+    tflac_cfr_order1_wide_std(BLOCKSIZE,samples,residuals,&result);
 
     r = !TFLAC_U64_EQ(result,TFLAC_U64_MAX);
 
-    printf("test_order1_64bit_max: %s\n",passfail[r]);
+    printf("test_order1_wide_std_max: %s\n",passfail[r]);
     return r;
 }
 
-static int test_order2_64bit_max(void) {
+static int test_order2_wide_std_max(void) {
     int r;
 
     test_reset();
@@ -353,15 +353,15 @@ static int test_order2_64bit_max(void) {
     samples[1] = INT32_MIN;
     samples[2] = INT32_MAX;
 
-    tflac_cfr_order2_64bit(BLOCKSIZE,samples,residuals,&result);
+    tflac_cfr_order2_wide_std(BLOCKSIZE,samples,residuals,&result);
 
     r = !TFLAC_U64_EQ(result,TFLAC_U64_MAX);
 
-    printf("test_order2_64bit_max: %s\n",passfail[r]);
+    printf("test_order2_wide_std_max: %s\n",passfail[r]);
     return r;
 }
 
-static int test_order3_64bit_max(void) {
+static int test_order3_wide_std_max(void) {
     int r;
 
     test_reset();
@@ -371,15 +371,15 @@ static int test_order3_64bit_max(void) {
     samples[2] = INT32_MIN;
     samples[3] = INT32_MAX;
 
-    tflac_cfr_order3_64bit(BLOCKSIZE,samples,residuals,&result);
+    tflac_cfr_order3_wide_std(BLOCKSIZE,samples,residuals,&result);
 
     r = !TFLAC_U64_EQ(result,TFLAC_U64_MAX);
 
-    printf("test_order3_64bit_max: %s\n",passfail[r]);
+    printf("test_order3_wide_std_max: %s\n",passfail[r]);
     return r;
 }
 
-static int test_order4_64bit_max(void) {
+static int test_order4_wide_std_max(void) {
     int r;
 
     test_reset();
@@ -390,11 +390,11 @@ static int test_order4_64bit_max(void) {
     samples[3] = INT32_MIN;
     samples[4] = INT32_MAX;
 
-    tflac_cfr_order4_64bit(BLOCKSIZE,samples,residuals,&result);
+    tflac_cfr_order4_wide_std(BLOCKSIZE,samples,residuals,&result);
 
     r = !TFLAC_U64_EQ(result,TFLAC_U64_MAX);
 
-    printf("test_order4_64bit_max: %s\n",passfail[r]);
+    printf("test_order4_wide_std_max: %s\n",passfail[r]);
     return r;
 }
 
@@ -418,11 +418,11 @@ STANDARD_TEST_DEF(2,std)
 STANDARD_TEST_DEF(3,std)
 STANDARD_TEST_DEF(4,std)
 
-STANDARD_TEST_DEF(0,64bit)
-STANDARD_TEST_DEF(1,64bit)
-STANDARD_TEST_DEF(2,64bit)
-STANDARD_TEST_DEF(3,64bit)
-STANDARD_TEST_DEF(4,64bit)
+STANDARD_TEST_DEF(0,wide_std)
+STANDARD_TEST_DEF(1,wide_std)
+STANDARD_TEST_DEF(2,wide_std)
+STANDARD_TEST_DEF(3,wide_std)
+STANDARD_TEST_DEF(4,wide_std)
 
 STANDARD_TEST_DEF(0,sse2)
 STANDARD_TEST_DEF(1,sse2)
@@ -442,17 +442,17 @@ int main(void) {
     samples = align_ptr(samples_unaligned);
     residuals = align_ptr(residuals_unaligned);
 
-    r |= test_order0_64bit_zero();
-    r |= test_order1_64bit_zero();
-    r |= test_order2_64bit_zero();
-    r |= test_order3_64bit_zero();
-    r |= test_order4_64bit_zero();
+    r |= test_order0_wide_std_zero();
+    r |= test_order1_wide_std_zero();
+    r |= test_order2_wide_std_zero();
+    r |= test_order3_wide_std_zero();
+    r |= test_order4_wide_std_zero();
 
-    r |= test_order0_64bit_max();
-    r |= test_order1_64bit_max();
-    r |= test_order2_64bit_max();
-    r |= test_order3_64bit_max();
-    r |= test_order4_64bit_max();
+    r |= test_order0_wide_std_max();
+    r |= test_order1_wide_std_max();
+    r |= test_order2_wide_std_max();
+    r |= test_order3_wide_std_max();
+    r |= test_order4_wide_std_max();
 
     r |= STANDARD_TEST(0,std)();
     r |= STANDARD_TEST(1,std)();
@@ -466,11 +466,11 @@ int main(void) {
     r |= STANDARD_TEST(3,sse2)();
     r |= STANDARD_TEST(4,sse2)();
 
-    r |= STANDARD_TEST(0,64bit)();
-    r |= STANDARD_TEST(1,64bit)();
-    r |= STANDARD_TEST(2,64bit)();
-    r |= STANDARD_TEST(3,64bit)();
-    r |= STANDARD_TEST(4,64bit)();
+    r |= STANDARD_TEST(0,wide_std)();
+    r |= STANDARD_TEST(1,wide_std)();
+    r |= STANDARD_TEST(2,wide_std)();
+    r |= STANDARD_TEST(3,wide_std)();
+    r |= STANDARD_TEST(4,wide_std)();
 
     free(samples_unaligned);
     free(residuals_unaligned);
