@@ -6,3 +6,7 @@
 /demos/encoder/encoder
 /demos/encoder-raw/encoder-raw
 /misc/weird-wav-maker/weird-wav-maker
+/tests/residuals/test-32bit
+/tests/residuals/test-64bit
+/times/residuals/time-32bit
+/times/residuals/time-64bit

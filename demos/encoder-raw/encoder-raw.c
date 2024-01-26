@@ -5,66 +5,118 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdarg.h>
-#include <inttypes.h>
 
-/* example that reads in a headerless WAV file and writes
- * out a FLAC file. assumes WAV is 16-bit, 2channel, 44100Hz */
 
 /* headerless wav can be created via ffmpeg like:
  *     ffmpeg -i your-audio.mp3 -ar 44100 -ac 2 -f s16le your-audio.raw
  */
 
-#define FRAME_SIZE 1152
-#define SAMPLERATE 44100
-#define BITDEPTH 16
-#define CHANNELS     2
-#define SAMPLESIZE   2
+#define FRAME_SIZE   1152
+#define SAMPLERATE  44100
+#define BITDEPTH       16
+#define CHANNELS        2
 
-static uint16_t unpack_u16le(const uint8_t* d) {
-    return (((uint16_t)d[0])    ) |
-           (((uint16_t)d[1])<< 8);
+/* example that reads in a headerless WAV file and writes
+ * out a FLAC file. assumes WAV has the defined parameters above */
+
+#if (BITDEPTH == 16)
+
+static tflac_u16 unpack_u16le(const tflac_u8* d) {
+    return (((tflac_u16)d[0])    ) |
+           (((tflac_u16)d[1])<< 8);
 }
 
-static int16_t unpack_s16le(const uint8_t* d) {
-    return (int16_t)unpack_u16le(d);
+static tflac_s16 unpack_s16le(const tflac_u8* d) {
+    return (tflac_s16)unpack_u16le(d);
 }
 
 void
-repack_samples(int16_t *s, uint32_t channels, uint32_t num) {
-    uint32_t i = 0;
+repack_samples(tflac_s16 *s, tflac_u32 channels, tflac_u32 num) {
+    tflac_u32 i = 0;
     while(i < (channels*num)) {
-        s[i] = unpack_s16le( (uint8_t*) (&s[i]) );
+        s[i] = unpack_s16le( (tflac_u8*) (&s[i]) );
         i++;
     }
 }
 
+typedef tflac_s16 sample;
+#define ENCODE_FUNC tflac_encode_s16i
+
+#elif (BITDEPTH == 32)
+static tflac_u32 unpack_u32le(const tflac_u8* d) {
+    return (((tflac_u32)d[0])     ) |
+           (((tflac_u32)d[1])<< 8 ) |
+           (((tflac_u32)d[2])<< 16) |
+           (((tflac_u32)d[3])<< 24);
+}
+
+static tflac_s32 unpack_s32le(const tflac_u8* d) {
+    return (tflac_s32)unpack_u32le(d);
+}
+
+void
+repack_samples(tflac_s32 *s, tflac_u32 channels, tflac_u32 num) {
+    tflac_u32 i = 0;
+    while(i < (channels*num)) {
+        s[i] = unpack_s32le( (tflac_u8*) (&s[i]) );
+        i++;
+    }
+}
+
+typedef tflac_s32 sample;
+#define ENCODE_FUNC tflac_encode_s32i
+#else
+#error "unsupported bit depth"
+#endif
+
+#define DUMP_SIZES 1
+#define DUMP_COUNTS 1
+
 int main(int argc, const char *argv[]) {
-    uint8_t *buffer = NULL;
-    uint32_t bufferlen = 0;
-    uint32_t bufferused = 0;
+    tflac_u8 *buffer = NULL;
+    tflac_u32 bufferlen = 0;
+    tflac_u32 bufferused = 0;
     FILE *input = NULL;
     FILE *output = NULL;
-    uint32_t frames = 0;
-    int16_t *samples = NULL;
+    tflac_u32 frames = 0;
+    sample *samples = NULL;
     void *tflac_mem = NULL;
-    unsigned int i = 0;
-    unsigned int j = 0;
-    unsigned int dump_subframe_types = 0;
-    unsigned int dump_sizes = 0;
     tflac t;
+
+#if DUMP_SIZES
+    printf("tflac_size(): %u\n", tflac_size());
+    printf("tflac_size_memory(%u): %u\n", FRAME_SIZE, tflac_size_memory(FRAME_SIZE));
+    printf("TFLAC_SIZE_MEMORY(%u): %lu\n", FRAME_SIZE, TFLAC_SIZE_MEMORY(FRAME_SIZE));
+    printf("tflac_size_frame(%u,%u,%u): %u\n", FRAME_SIZE, CHANNELS, BITDEPTH, tflac_size_frame(FRAME_SIZE, CHANNELS, BITDEPTH));
+    printf("TFLAC_SIZE_FRAME(%u,%u,%u): %lu\n", FRAME_SIZE, CHANNELS, BITDEPTH, TFLAC_SIZE_FRAME(FRAME_SIZE, CHANNELS, BITDEPTH));
+#endif
 
     if(argc < 3) {
         printf("Usage: %s /path/to/raw /path/to/flac\n",argv[0]);
         return 1;
     }
 
+    if(tflac_size_memory(FRAME_SIZE) != TFLAC_SIZE_MEMORY(FRAME_SIZE)) {
+        printf("Error with needed memory size: %u != %lu\n",
+          tflac_size_memory(FRAME_SIZE),TFLAC_SIZE_MEMORY(FRAME_SIZE));
+        return 1;
+    }
+
+    if(tflac_size_frame(FRAME_SIZE,CHANNELS,BITDEPTH) != TFLAC_SIZE_FRAME(FRAME_SIZE,CHANNELS,BITDEPTH)) {
+        printf("Error with needed frame size: %u != %u\n",
+          tflac_size_frame(FRAME_SIZE,CHANNELS,BITDEPTH),TFLAC_SIZE_FRAME(FRAME_SIZE,CHANNELS,BITDEPTH));
+        return 1;
+    }
+
+    tflac_detect_cpu();
     tflac_init(&t);
 
     t.samplerate = SAMPLERATE;
     t.channels = CHANNELS;
     t.bitdepth = BITDEPTH;
     t.blocksize = FRAME_SIZE;
-    t.max_partition_order = 4;
+    t.max_partition_order = 3;
+    t.enable_md5 = 1;
 
     if(strcmp(argv[1],"-") == 0) {
         input = stdin;
@@ -80,11 +132,6 @@ int main(int argc, const char *argv[]) {
         return 1;
     }
 
-    if(dump_sizes) {
-        printf("tflac struct size: %u\n", tflac_size());
-        printf("tflac memory size: %u\n", tflac_size_memory(t.blocksize));
-        printf("tflac max frame size: %u\n", tflac_size_frame(t.blocksize,t.channels,t.bitdepth));
-    }
 
     tflac_mem = malloc(tflac_size_memory(t.blocksize));
     if(tflac_mem == NULL) abort();
@@ -94,12 +141,11 @@ int main(int argc, const char *argv[]) {
 
     if(tflac_validate(&t, tflac_mem, tflac_size_memory(t.blocksize)) != 0) abort();
 
-    /* we could also use the tflac_size_frame() function */
-    bufferlen = TFLAC_SIZE_FRAME(FRAME_SIZE,CHANNELS,BITDEPTH);
+    bufferlen = tflac_size_frame(FRAME_SIZE,CHANNELS,BITDEPTH);
     buffer = malloc(bufferlen);
     if(buffer == NULL) abort();
 
-    samples = (int16_t *)malloc(sizeof(int16_t) * CHANNELS * FRAME_SIZE);
+    samples = (sample *)malloc(sizeof(sample) * CHANNELS * FRAME_SIZE);
     if(!samples) abort();
 
     fwrite("fLaC",1,4,output);
@@ -109,10 +155,10 @@ int main(int argc, const char *argv[]) {
     tflac_encode_streaminfo(&t, 1, buffer, bufferlen, &bufferused);
     fwrite(buffer,1,bufferused,output);
 
-    while((frames = fread(samples,sizeof(int16_t) * CHANNELS, FRAME_SIZE, input)) > 0) {
+    while((frames = fread(samples,sizeof(sample) * CHANNELS, FRAME_SIZE, input)) > 0) {
         repack_samples(samples, CHANNELS, frames);
 
-        if(tflac_encode_int16i(&t, frames, samples, buffer, bufferlen, &bufferused) != 0) abort();
+        if(ENCODE_FUNC(&t, frames, samples, buffer, bufferlen, &bufferused) != 0) abort();
         fwrite(buffer,1,bufferused,output);
     }
 
@@ -124,14 +170,21 @@ int main(int argc, const char *argv[]) {
     tflac_encode_streaminfo(&t, 1, buffer, bufferlen, &bufferused);
     fwrite(buffer,1,bufferused,output);
 
-    if(dump_subframe_types) {
+#if DUMP_COUNTS
+    do {
+        unsigned int i,j;
         for(i=0;i<2;i++) {
             printf("channel %u:\n",i+1);
             for(j=0;j<TFLAC_SUBFRAME_TYPE_COUNT;j++) {
-                printf("  %s: %" PRIu64 "\n", tflac_subframe_types[j], t.subframe_type_counts[i][j]);
+#ifdef TFLAC_32BIT_ONLY
+                printf("  %s: %u\n", tflac_subframe_types[j], t.subframe_type_counts[i][j].lo);
+#else
+                printf("  %s: %lu\n", tflac_subframe_types[j], t.subframe_type_counts[i][j]);
+#endif
             }
         }
-    }
+    } while(0);
+#endif
 
     fclose(input);
     fclose(output);

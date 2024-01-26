@@ -1,18 +1,20 @@
 #include <stdio.h>
-#include <stdint.h>
+
+/* including tflac.h for types */
+#include "tflac.h"
 
 /* a basic WAV decoder, just works with FILE*, enough for our demo purposes */
 
 struct wav_decoder {
     FILE* input;
-    int (*readsample)(struct wav_decoder*, int32_t* sample);
-    uint32_t length; /* the length of the data chunk, in samples */
-    uint16_t channels;
-    uint32_t samplerate;
-    uint16_t bitdepth; /* already has wasted_bits subtracted */
-    uint32_t channelmask;
+    int (*readsample)(struct wav_decoder*, tflac_s32* sample);
+    tflac_u32 length; /* the length of the data chunk, in samples */
+    tflac_u16 channels;
+    tflac_u32 samplerate;
+    tflac_u16 bitdepth; /* already has wasted_bits subtracted */
+    tflac_u32 channelmask;
 
-    uint16_t wasted_bits;
+    tflac_u16 wasted_bits;
 };
 
 typedef struct wav_decoder wav_decoder;
@@ -28,4 +30,4 @@ typedef struct wav_decoder wav_decoder;
 }
 
 int wav_decoder_open(wav_decoder*, FILE*);
-int wav_decoder_decode(wav_decoder*, int32_t* buffer, uint32_t len, uint32_t* read);
+int wav_decoder_decode(wav_decoder*, tflac_s32* buffer, tflac_u32 len, tflac_u32* read);

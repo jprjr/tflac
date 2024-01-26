@@ -54,7 +54,7 @@ function. Both versions just require a blocksize.
 Then call tflac_validate with your memory block and the size, it will validate that all
 your fields make sense and record pointers into the memory block.
 
-    uint32_t mem_size = tflac_size_memory(1152);
+    tflac_u32 mem_size = tflac_size_memory(1152);
     void* block = malloc(mem_size);
     tflac_validate(&t, block, mem_size);
 
@@ -64,21 +64,21 @@ or tflac_size_frame() function. Both versions need the blocksize,
 channels, and bitdepth, and return the maximum amount of bytes required
 to hold a frame of audio.
 
-    uint32_t buffer_len = tflac_size_frame(1152, 2, 16);
+    tflac_u32 buffer_len = tflac_size_frame(1152, 2, 16);
     void* buffer = malloc(buffer_len);
 
 Finally to encode audio, you'll call the appropriate tflac_encode function,
 depending on how your source data is laid out:
-    - int32_t** (planar)      => tflac_encode_int32p
-    - int32_t*  (interleaved) => tflac_encode_int32i
-    - int16_t** (planar)      => tflac_encode_int16p
-    - int16_t*  (interleaved) => tflac_encode_int16i
+    - tflac_s32** (planar)      => tflac_encode_s32p
+    - tflac_s32*  (interleaved) => tflac_encode_s32i
+    - tflac_s16** (planar)      => tflac_encode_s16p
+    - tflac_s16*  (interleaved) => tflac_encode_s16i
 
 You'll also provide the current block size (all blocks except the last need to
 use the same block size), a buffer to encode data to, and your buffer's length.
 
-    int32_t* samples[2];
-    uint32_t used = 0;
+    tflac_s32* samples[2];
+    tflac_u32 used = 0;
     samples[0] = { 0, 1,  2,  3,  4,  5,  6,  7 };
     samples[1] = { 8, 9, 10, 11, 12, 13, 14, 15 };
     tflac_encode_int32p(&t, 8, samples, buffer, buffer_len, &used);
@@ -108,6 +108,422 @@ Other metadata blocks are out-of-scope, as is writing the "fLaC" stream marker.
 #else
 #define TFLAC_PURE
 #endif
+#endif
+
+#ifndef TFLAC_PUBLIC
+#define TFLAC_PUBLIC
+#endif
+
+#ifndef TFLAC_PRIVATE
+#define TFLAC_PRIVATE static
+#endif
+
+#define TFLAC_SIZE_STREAMINFO 38UL
+#define TFLAC_SIZE_FRAME(blocksize, channels, bitdepth) \
+    (18UL + 8UL + \
+      ((blocksize * channels * bitdepth)/8) + \
+      ( !!((blocksize * channels * bitdepth) % 8) ) + \
+      channels)
+#define TFLAC_SIZE_MEMORY(blocksize) (15UL + (5UL * ((15UL + (blocksize * 4UL)) & 0xFFFFFFF0UL)))
+
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+#include <stddef.h>
+#include <limits.h>
+
+#if (__STDC_VERSION__ >= 199901L) || defined(__GNUC__)
+#include <stdint.h>
+typedef uint8_t  tflac_u8;
+typedef  int8_t  tflac_s8;
+typedef uint16_t tflac_u16;
+typedef  int16_t tflac_s16;
+typedef uint32_t tflac_u32;
+typedef  int32_t tflac_s32;
+#ifndef TFLAC_32BIT_ONLY
+typedef uint64_t tflac_u64;
+typedef  int64_t tflac_s64;
+#endif
+#else
+
+#ifndef UINT8_MAX
+#define UINT8_MAX 0xFF
+#endif
+
+#ifndef INT8_MAX
+#define INT8_MAX 0x7F
+#endif
+
+#ifndef UINT16_MAX
+#define UINT16_MAX 0xFFFF
+#endif
+
+#ifndef INT16_MAX
+#define INT16_MAX 0x7FFF
+#endif
+
+#ifndef UINT32_MAX
+#define UINT32_MAX 0xFFFFFFFFUL
+#endif
+
+#ifndef INT32_MAX
+#define INT32_MAX 0x7FFFFFFFL
+#endif
+
+#if (UINT8_MAX == UCHAR_MAX)
+typedef unsigned char tflac_u8;
+#ifndef UINT8_C
+#define UINT8_C(x) ((tflac_u8)x)
+#endif
+#else
+#error "not supported"
+#endif
+
+#if (INT8_MAX == SCHAR_MAX)
+typedef signed char tflac_s8;
+#ifndef INT8_C
+#define INT8_C(x) ((tflac_s8)x)
+#endif
+#ifndef INT8_MIN
+#define INT8_MIN SCHAR_MIN
+#endif
+#else
+#error "not supported"
+#endif
+
+#if (UINT16_MAX == USHRT_MAX)
+typedef unsigned short tflac_u16;
+#ifndef UINT8_C
+#define UINT8_C(x) ((tflac_u8)x)
+#endif
+#else
+#error "not supported"
+#endif
+
+#if (INT16_MAX == SHRT_MAX)
+typedef signed short tflac_s16;
+#ifndef INT16_C
+#define INT16_C(x) ((tflac_s16)x)
+#ifndef INT16_MIN
+#define INT16_MIN SHRT_MIN
+#endif
+#endif
+#else
+#error "not supported"
+#endif
+
+#if (UINT32_MAX == UINT_MAX)
+typedef unsigned int tflac_u32;
+#ifndef UINT32_C
+#define UINT32_C(x) (x ## U)
+#endif
+#elif (UINT32_MAX == ULONG_MAX)
+typedef unsigned long tflac_u32;
+#ifndef UINT32_C
+#define UINT32_C(x) (x ## UL)
+#endif
+#else
+#error "not supported"
+#endif
+
+#if (INT32_MAX == INT_MAX)
+typedef signed int tflac_s32;
+#ifndef INT32_C
+#define INT32_C(x) (x)
+#endif
+#ifndef INT32_MIN
+#define INT32_MIN INT_MIN
+#endif
+#elif (INT32_MAX == LONG_MAX)
+typedef signed long tflac_s32;
+#ifndef INT32_C
+#define INT32_C(x) (x ## L)
+#endif
+#ifndef INT32_MIN
+#define INT32_MIN LONG_MIN
+#endif
+#else
+#error "not supported"
+#endif
+
+#ifdef _MSC_VER
+#ifndef TFLAC_32BIT_ONLY
+typedef unsigned __int64  tflac_u64;
+typedef signed   __int64  tflac_s64;
+#ifndef UINT64_MAX
+#define UINT64_MAX 0xFFFFFFFFFFFFFFFFui64
+#endif
+
+#ifndef INT64_MAX
+#define INT64_MAX 0x7FFFFFFFFFFFFFFFi64
+#endif
+
+#ifndef UINT64_C
+#define UINT64_C(x) (x ## ui64)
+#endif
+
+#ifndef INT64_C
+#define INT64_C(x) (x ## i64)
+#endif
+#endif
+
+#if !defined(_UINTPTR_T_DEFINED)
+/* this only occurs with MSVC < 8.0 which
+ * was the first to support 64-bit mode, so
+ * we'll just assume 32-bit uintptr_t */
+typedef tflac_u32 uintptr_t;
+typedef tflac_s32 intptr_t;
+#endif
+
+#else
+#define TFLAC_32BIT_ONLY
+typedef tflac_u32 uintptr_t;
+typedef tflac_s32 intptr_t;
+#endif
+
+#endif /* end no stdint.h */
+
+#ifdef TFLAC_32BIT_ONLY
+struct tflac_u64 {
+    tflac_u32 lo;
+    tflac_u32 hi;
+};
+typedef struct tflac_u64 tflac_u64;
+
+struct tflac_s64 {
+    tflac_u64 v;
+    tflac_u8 sign;
+};
+typedef struct tflac_s64 tflac_s64;
+typedef tflac_u32 tflac_uint;
+#define tflac_pack_uint tflac_pack_u32be
+#else
+typedef tflac_u64 tflac_uint;
+#define tflac_pack_uint tflac_pack_u64be
+#endif
+
+enum TFLAC_SUBFRAME_TYPE {
+    TFLAC_SUBFRAME_CONSTANT   = 0,
+    TFLAC_SUBFRAME_VERBATIM   = 1,
+    TFLAC_SUBFRAME_FIXED      = 2,
+    TFLAC_SUBFRAME_LPC        = 3,
+    TFLAC_SUBFRAME_TYPE_COUNT = 4
+};
+
+typedef enum TFLAC_SUBFRAME_TYPE TFLAC_SUBFRAME_TYPE;
+
+struct tflac_bitwriter {
+    tflac_uint val;
+    tflac_u32  bits;
+    tflac_u32  pos;
+    tflac_u32  len;
+    tflac_u8*  buffer;
+};
+
+typedef struct tflac_bitwriter tflac_bitwriter;
+
+struct tflac_md5 {
+    tflac_u32 a;
+    tflac_u32 b;
+    tflac_u32 c;
+    tflac_u32 d;
+    tflac_u32 pos;
+    tflac_u64 total;
+    tflac_u8 buffer[64];
+};
+
+typedef struct tflac_md5 tflac_md5;
+
+struct tflac {
+    tflac_bitwriter bw;
+    tflac_md5 md5_ctx;
+    tflac_u32 blocksize;
+    tflac_u32 samplerate;
+    tflac_u32 channels;
+    tflac_u32 bitdepth;
+
+    tflac_u8 max_rice_value; /* defaults to 14 if bitdepth < 16; 30 otherwise */
+    tflac_u8 min_partition_order; /* defaults to 0 */
+    tflac_u8 max_partition_order; /* defaults to 0, should be <=8 to be in streamable subset */
+    tflac_u8 partition_order;
+
+    tflac_u8 enable_constant_subframe;
+    tflac_u8 enable_fixed_subframe;
+    tflac_u8 enable_md5;
+
+    tflac_u32 frame_header;
+
+    tflac_u64 samplecount;
+    tflac_u32 frameno;
+    tflac_u32 verbatim_subframe_len;
+    tflac_u32 cur_blocksize;
+    tflac_u32 max_frame_len; /* stores the max allowed frame length */
+
+    tflac_u32 min_frame_size;
+    tflac_u32 max_frame_size;
+
+    tflac_u32 wasted_bits;
+    tflac_u8 constant;
+
+    tflac_u8 md5_digest[16];
+
+    void (*calculate_order[5])(
+      tflac_u32 blocksize,
+      const tflac_s32*,
+      tflac_s32*,
+      tflac_u64*
+    );
+
+    tflac_u64 residual_errors[5];
+    tflac_s32* residuals[5]; /* orders 0, 1, 2, 3, 4 */
+
+#ifndef TFLAC_DISABLE_COUNTERS
+    tflac_u64 subframe_type_counts[8][TFLAC_SUBFRAME_TYPE_COUNT]; /* stores stats on what
+    subframes were used per-channel */
+#endif
+};
+typedef struct tflac tflac;
+
+extern const char* const tflac_subframe_types[4];
+
+/* runtime CPU features detection, should be called once, globally */
+TFLAC_PUBLIC
+void tflac_detect_cpu(void);
+
+/* returns the maximum number of bytes to store a whole FLAC frame */
+TFLAC_PUBLIC
+TFLAC_CONST
+tflac_u32 tflac_size_frame(tflac_u32 blocksize, tflac_u32 channels, tflac_u32 bitdepth);
+
+/* returns the memory size of the tflac struct */
+TFLAC_PUBLIC
+TFLAC_CONST
+tflac_u32 tflac_size(void);
+
+/* returns how much memory is required for storing residuals */
+TFLAC_PUBLIC
+TFLAC_CONST
+tflac_u32 tflac_size_memory(tflac_u32 blocksize);
+
+/* return the size needed to write a STREAMINFO block */
+TFLAC_PUBLIC
+TFLAC_CONST
+tflac_u32 tflac_size_streaminfo(void);
+
+/* initialize a tflac struct */
+TFLAC_PUBLIC
+void tflac_init(tflac *);
+
+/* validates that the encoder settings are OK, sets up needed memory pointers */
+TFLAC_PUBLIC
+int tflac_validate(tflac *, void* ptr, tflac_u32 len);
+
+TFLAC_PUBLIC
+int tflac_encode_s16p(tflac *, tflac_u32 blocksize, tflac_s16** samples, void* buffer, tflac_u32 len, tflac_u32* used);
+
+TFLAC_PUBLIC
+int tflac_encode_s16i(tflac *, tflac_u32 blocksize, tflac_s16* samples, void* buffer, tflac_u32 len, tflac_u32* used);
+
+TFLAC_PUBLIC
+int tflac_encode_s32p(tflac *, tflac_u32 blocksize, tflac_s32** samples, void* buffer, tflac_u32 len, tflac_u32* used);
+
+TFLAC_PUBLIC
+int tflac_encode_s32i(tflac *, tflac_u32 blocksize, tflac_s32* samples, void* buffer, tflac_u32 len, tflac_u32* used);
+
+/* computes the final MD5 digest, if it was enabled */
+TFLAC_PUBLIC
+void tflac_finalize(tflac *);
+
+/* encode a STREAMINFO block */
+TFLAC_PUBLIC
+int tflac_encode_streaminfo(const tflac *, tflac_u32 lastflag, void* buffer, tflac_u32 len, tflac_u32* used);
+
+/* setters for various fields */
+TFLAC_PUBLIC
+void tflac_set_blocksize(tflac *t, tflac_u32 blocksize);
+
+TFLAC_PUBLIC
+void tflac_set_samplerate(tflac *t, tflac_u32 samplerate);
+
+TFLAC_PUBLIC
+void tflac_set_channels(tflac *t, tflac_u32 channels);
+
+TFLAC_PUBLIC
+void tflac_set_bitdepth(tflac *t, tflac_u32 bitdepth);
+
+TFLAC_PUBLIC
+void tflac_set_max_rice_value(tflac *t, tflac_u32 max_rice_value);
+
+TFLAC_PUBLIC
+void tflac_set_min_partition_order(tflac *t, tflac_u32 min_partition_order);
+
+TFLAC_PUBLIC
+void tflac_set_max_partition_order(tflac *t, tflac_u32 max_partition_order);
+
+TFLAC_PUBLIC
+void tflac_set_constant_subframe(tflac* t, tflac_u32 enable);
+
+TFLAC_PUBLIC
+void tflac_set_fixed_subframe(tflac* t, tflac_u32 enable);
+
+TFLAC_PUBLIC
+void tflac_set_enable_md5(tflac* t, tflac_u32 enable);
+
+/* getters for various fields */
+TFLAC_PURE
+TFLAC_PUBLIC
+tflac_u32 tflac_get_blocksize(const tflac* t);
+
+TFLAC_PURE
+TFLAC_PUBLIC
+tflac_u32 tflac_get_samplerate(const tflac* t);
+
+TFLAC_PURE
+TFLAC_PUBLIC
+tflac_u32 tflac_get_channels(const tflac* t);
+
+TFLAC_PURE
+TFLAC_PUBLIC
+tflac_u32 tflac_get_bitdepth(const tflac* t);
+
+TFLAC_PURE
+TFLAC_PUBLIC
+tflac_u32 tflac_get_max_rice_value(const tflac* t);
+
+TFLAC_PURE
+TFLAC_PUBLIC
+tflac_u32 tflac_get_min_partition_order(const tflac* t);
+
+TFLAC_PURE
+TFLAC_PUBLIC
+tflac_u32 tflac_get_max_partition_order(const tflac* t);
+
+TFLAC_PURE
+TFLAC_PUBLIC
+tflac_u32 tflac_get_constant_subframe(const tflac* t);
+
+TFLAC_PURE
+TFLAC_PUBLIC
+tflac_u32 tflac_get_fixed_subframe(const tflac* t);
+
+TFLAC_PURE
+TFLAC_PUBLIC
+tflac_u32 tflac_get_enable_md5(const tflac* t);
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif /* ifndef TFLAC_HEADER_GUARD */
+
+#ifdef TFLAC_IMPLEMENTATION
+
+#if defined(__x86_64__) || defined(_M_X64)
+#define TFLAC_X64
+#elif defined(__i386) || defined(_M_IX86)
+#define TFLAC_X86
 #endif
 
 #ifndef TFLAC_ASSUME_ALIGNED
@@ -148,304 +564,6 @@ Other metadata blocks are out-of-scope, as is writing the "fLaC" stream marker.
 #endif
 #endif
 
-#ifndef TFLAC_PUBLIC
-#define TFLAC_PUBLIC
-#endif
-
-#ifndef TFLAC_PRIVATE
-#define TFLAC_PRIVATE static
-#endif
-
-#ifndef TFLAC_INT_SIZE
-#define TFLAC_INT_SIZE 4
-#elif !(TFLAC_INT_SIZE == 4 || TFLAC_INT_SIZE == 8)
-#error "unsupported TFLAC_INT_SIZE"
-#endif
-
-#define TFLAC_SIZE_STREAMINFO 38
-#define TFLAC_SIZE_FRAME(blocksize, channels, bitdepth) \
-    (18 + 8 + \
-      ((blocksize * channels * bitdepth)/8) + \
-      ( !!((blocksize * channels * bitdepth) % 8) ) + \
-      channels)
-#define TFLAC_SIZE_MEMORY(blocksize) (15 + (5 * ((15 + (blocksize * TFLAC_INT_SIZE)) & 0xFFFFFFF0)))
-
-
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-#include <stdint.h>
-#include <stddef.h>
-
-enum TFLAC_SUBFRAME_TYPE {
-    TFLAC_SUBFRAME_CONSTANT   = 0,
-    TFLAC_SUBFRAME_VERBATIM   = 1,
-    TFLAC_SUBFRAME_FIXED      = 2,
-    TFLAC_SUBFRAME_LPC        = 3,
-    TFLAC_SUBFRAME_TYPE_COUNT = 4,
-};
-
-typedef enum TFLAC_SUBFRAME_TYPE TFLAC_SUBFRAME_TYPE;
-
-#if TFLAC_INT_SIZE == 4
-typedef int32_t tflac_int;
-typedef uint32_t tflac_uint;
-#else
-typedef int64_t tflac_int;
-typedef uint64_t tflac_uint;
-#endif
-
-struct tflac_bitwriter {
-    uint64_t val;
-    uint32_t bits;
-    uint32_t pos;
-    uint32_t len;
-    uint8_t* buffer;
-};
-
-typedef struct tflac_bitwriter tflac_bitwriter;
-
-struct tflac_md5 {
-    uint32_t a;
-    uint32_t b;
-    uint32_t c;
-    uint32_t d;
-    uint32_t pos;
-    uint64_t total;
-    uint8_t buffer[64];
-};
-
-typedef struct tflac_md5 tflac_md5;
-
-struct tflac {
-    tflac_bitwriter bw;
-    tflac_md5 md5_ctx;
-    uint32_t blocksize;
-    uint32_t samplerate;
-    uint32_t channels;
-    uint32_t bitdepth;
-
-    uint8_t max_rice_value; /* defaults to 14 if bitdepth < 16; 30 otherwise */
-    uint8_t min_partition_order; /* defaults to 0 */
-    uint8_t max_partition_order; /* defaults to 0, should be <=8 to be in streamable subset */
-    uint8_t partition_order;
-
-    uint8_t enable_constant_subframe;
-    uint8_t enable_fixed_subframe;
-    uint8_t enable_md5;
-
-    uint32_t frame_header;
-
-    uint64_t samplecount;
-    uint32_t frameno;
-    uint32_t verbatim_subframe_len;
-    uint32_t cur_blocksize;
-    uint32_t max_frame_len; /* stores the max allowed frame length */
-
-    uint32_t min_frame_size;
-    uint32_t max_frame_size;
-
-    uint32_t wasted_bits;
-    uint8_t constant;
-
-    uint8_t md5_digest[16];
-
-    void (*calculate_order[5])(struct tflac*);
-
-    uint64_t residual_errors[5];
-    tflac_int* residuals[5]; /* orders 0, 1, 2, 3, 4 */
-
-#ifndef TFLAC_DISABLE_COUNTERS
-    uint64_t subframe_type_counts[8][TFLAC_SUBFRAME_TYPE_COUNT]; /* stores stats on what
-    subframes were used per-channel */
-#endif
-};
-typedef struct tflac tflac;
-
-#define TFLAC_BITWRITER_ZERO { \
-  .val = 0, \
-  .bits = 0, \
-  .pos = 0, \
-  .len = 0, \
-  .buffer = NULL \
-}
-
-#define TFLAC_MD5_ZERO { \
-    .a = 0x67452301, \
-    .b = 0xefcdab89, \
-    .c = 0x98badcfe, \
-    .d = 0x10325476, \
-    .buffer = { 0 }, \
-    .total = 0, \
-    .pos = 0, \
-}
-#define TFLAC_ZERO { \
-  .bw = TFLAC_BITWRITER_ZERO, \
-  .md5_ctx = TFLAC_MD5_ZERO, \
-  .blocksize  = 0, \
-  .samplerate = 0, \
-  .channels   = 0, \
-  .bitdepth   = 0, \
-  .max_rice_value = 0, \
-  .min_partition_order = 0, \
-  .max_partition_order = 0, \
-  .partition_order = 0, \
-  .samplecount = 0, \
-  .frameno    = 0, \
-  .enable_constant_subframe = 1, \
-  .enable_fixed_subframe = 1, \
-  .enable_md5 = 1, \
-  .verbatim_subframe_len = 0, \
-  .cur_blocksize = 0, \
-  .max_frame_len = 0, \
-  .min_frame_size = 0, \
-  .max_frame_size = 0, \
-  .wasted_bits = 0, \
-  .constant = 0, \
-  .md5_digest = { \
-      0, 0, 0, 0, \
-      0, 0, 0, 0, \
-      0, 0, 0, 0, \
-      0, 0, 0, 0, \
-  }, \
-  .calculate_order = { NULL, NULL, NULL, NULL, NULL, }, \
-  .residual_errors = { 0, 0, 0, 0, 0, }, \
-  .residuals  = { NULL, NULL, NULL, NULL, NULL, }, \
-}
-
-extern const tflac_bitwriter tflac_bitwriter_zero;
-extern const tflac tflac_zero;
-extern const char* const tflac_subframe_types[4];
-
-/* returns the maximum number of bytes to store a whole FLAC frame */
-TFLAC_PUBLIC
-TFLAC_CONST
-uint32_t tflac_size_frame(uint32_t blocksize, uint32_t channels, uint32_t bitdepth);
-
-/* returns the memory size of the tflac struct */
-TFLAC_PUBLIC
-TFLAC_CONST
-uint32_t tflac_size(void);
-
-/* returns how much memory is required for storing residuals */
-TFLAC_PUBLIC
-TFLAC_CONST
-uint32_t tflac_size_memory(uint32_t blocksize);
-
-/* return the size needed to write a STREAMINFO block */
-TFLAC_PUBLIC
-TFLAC_CONST
-uint32_t tflac_size_streaminfo(void);
-
-/* initialize a tflac struct */
-TFLAC_PUBLIC
-void tflac_init(tflac *);
-
-/* validates that the encoder settings are OK, sets up needed memory pointers */
-TFLAC_PUBLIC
-int tflac_validate(tflac *, void* ptr, uint32_t len);
-
-TFLAC_PUBLIC
-int tflac_encode_int16p(tflac *, uint32_t blocksize, int16_t** samples, void* buffer, uint32_t len, uint32_t* used);
-
-TFLAC_PUBLIC
-int tflac_encode_int16i(tflac *, uint32_t blocksize, int16_t* samples, void* buffer, uint32_t len, uint32_t* used);
-
-TFLAC_PUBLIC
-int tflac_encode_int32p(tflac *, uint32_t blocksize, int32_t** samples, void* buffer, uint32_t len, uint32_t* used);
-
-TFLAC_PUBLIC
-int tflac_encode_int32i(tflac *, uint32_t blocksize, int32_t* samples, void* buffer, uint32_t len, uint32_t* used);
-
-/* computes the final MD5 digest, if it was enabled */
-TFLAC_PUBLIC
-void tflac_finalize(tflac *);
-
-/* encode a STREAMINFO block */
-TFLAC_PUBLIC
-int tflac_encode_streaminfo(const tflac *, uint32_t lastflag, void* buffer, uint32_t len, uint32_t* used);
-
-/* setters for various fields */
-TFLAC_PUBLIC
-void tflac_set_blocksize(tflac *t, uint32_t blocksize);
-
-TFLAC_PUBLIC
-void tflac_set_samplerate(tflac *t, uint32_t samplerate);
-
-TFLAC_PUBLIC
-void tflac_set_channels(tflac *t, uint32_t channels);
-
-TFLAC_PUBLIC
-void tflac_set_bitdepth(tflac *t, uint32_t bitdepth);
-
-TFLAC_PUBLIC
-void tflac_set_max_rice_value(tflac *t, uint32_t max_rice_value);
-
-TFLAC_PUBLIC
-void tflac_set_min_partition_order(tflac *t, uint32_t min_partition_order);
-
-TFLAC_PUBLIC
-void tflac_set_max_partition_order(tflac *t, uint32_t max_partition_order);
-
-TFLAC_PUBLIC
-void tflac_set_constant_subframe(tflac* t, uint32_t enable);
-
-TFLAC_PUBLIC
-void tflac_set_fixed_subframe(tflac* t, uint32_t enable);
-
-TFLAC_PUBLIC
-void tflac_set_enable_md5(tflac* t, uint32_t enable);
-
-/* getters for various fields */
-TFLAC_PURE
-TFLAC_PUBLIC
-uint32_t tflac_get_blocksize(const tflac* t);
-
-TFLAC_PURE
-TFLAC_PUBLIC
-uint32_t tflac_get_samplerate(const tflac* t);
-
-TFLAC_PURE
-TFLAC_PUBLIC
-uint32_t tflac_get_channels(const tflac* t);
-
-TFLAC_PURE
-TFLAC_PUBLIC
-uint32_t tflac_get_bitdepth(const tflac* t);
-
-TFLAC_PURE
-TFLAC_PUBLIC
-uint32_t tflac_get_max_rice_value(const tflac* t);
-
-TFLAC_PURE
-TFLAC_PUBLIC
-uint32_t tflac_get_min_partition_order(const tflac* t);
-
-TFLAC_PURE
-TFLAC_PUBLIC
-uint32_t tflac_get_max_partition_order(const tflac* t);
-
-TFLAC_PURE
-TFLAC_PUBLIC
-uint32_t tflac_get_constant_subframe(const tflac* t);
-
-TFLAC_PURE
-TFLAC_PUBLIC
-uint32_t tflac_get_fixed_subframe(const tflac* t);
-
-TFLAC_PURE
-TFLAC_PUBLIC
-uint32_t tflac_get_enable_md5(const tflac* t);
-
-#ifdef __cplusplus
-}
-#endif
-
-#endif /* ifndef TFLAC_HEADER_GUARD */
-
-#ifdef TFLAC_IMPLEMENTATION
-
 #ifndef TFLAC_ASSUME
 #if defined(__GNUC__) && __GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 5)
 #define TFLAC_ASSUME(x) do { if (!(x)) __builtin_unreachable(); } while (0);
@@ -465,102 +583,282 @@ uint32_t tflac_get_enable_md5(const tflac* t);
 #endif
 #endif
 
-#define TFLAC_BW_BITS 64
+#ifdef TFLAC_32BIT_ONLY
+#define TFLAC_UINT_MAX UINT32_MAX
+#define TFLAC_BW_BITS (CHAR_BIT * sizeof(tflac_uint))
+#else
+#define TFLAC_UINT_MAX UINT64_MAX
+#define TFLAC_BW_BITS (CHAR_BIT * sizeof(tflac_uint))
+#endif
 
-#ifdef _WIN32
+#if defined(_MSC_VER) && _MSC_VER >= 1400
 #include <intrin.h>
-#if _MSC_VER
 #pragma intrinsic(_BitScanForward)
+#ifdef TFLAC_X64
 #pragma intrinsic(_BitScanForward64)
 #endif
 #endif
 
+#if defined(TFLAC_X86) || defined(TFLAC_X64)
+#ifdef __GNUC__
+#include <cpuid.h>
+#endif
+#endif
+
+#ifndef TFLAC_DISABLE_SSE2
+/* TODO check for compiler support */
+#ifdef __SSE2__
+#define TFLAC_ENABLE_SSE2
+#endif
+
+#if defined(_MSC_VER) && _MSC_VER >= 1400
+#define TFLAC_ENABLE_SSE2
+#if _MSC_VER < 1500
+#define _mm_cvtsi128_si64(x) _mm_cvtsi128_si64x(x)
+#endif
+#endif
+
+#endif
+
+#ifdef TFLAC_ENABLE_SSE2
+#include <emmintrin.h>
+#endif
+
+
+#ifdef TFLAC_32BIT_ONLY
+
+TFLAC_PRIVATE TFLAC_INLINE
+void tflac_u64_cast(tflac_u64* u, tflac_u32 v) {
+    u->hi = 0;
+    u->lo = v;
+}
+
+TFLAC_PRIVATE TFLAC_INLINE
+void tflac_u64_add(tflac_u64* a, const tflac_u64* b) {
+    a->hi += b->hi;
+    a->hi += (a->lo += b->lo) < b->lo;
+}
+
+TFLAC_PRIVATE TFLAC_INLINE
+void tflac_u64_sub(tflac_u64* a, const tflac_u64* b) {
+    tflac_u32 t = a->lo;
+    a->hi -= b->hi;
+    a->hi -= (a->lo -= b->lo) > t;
+}
+
+TFLAC_PRIVATE TFLAC_INLINE
+void tflac_u64_add_word(tflac_u64* a, tflac_u32 b) {
+    a->hi += (a->lo += b) < b;
+}
+
+TFLAC_PRIVATE TFLAC_INLINE
+int tflac_u64_cmp(const tflac_u64* a, const tflac_u64* b) {
+    if(a->hi == b->hi) {
+        if(a->lo == b->lo) return 0;
+        return a->lo < b->lo ? -1 : 1;
+    }
+    return a->hi < b->hi ? -1 : 1;
+}
+
+TFLAC_PRIVATE TFLAC_INLINE
+int tflac_u64_cmp_word(const tflac_u64* a, tflac_u32 b) {
+    if(a->hi) return 1;
+
+    if(a->lo == b) return 0;
+
+    return a->lo < b ? -1 : 1;
+}
+
+TFLAC_PRIVATE TFLAC_INLINE
+void tflac_s64_cast(tflac_s64* s, tflac_s32 v) {
+    if(v < 0) {
+        s->sign = 1;
+        tflac_u64_cast(&s->v, (tflac_u32)-v);
+    } else {
+        s->sign = 0;
+        tflac_u64_cast(&s->v, (tflac_u32)v);
+    }
+}
+
+TFLAC_PRIVATE TFLAC_INLINE
+void tflac_s64_add(tflac_s64* a, const tflac_s64* b) {
+    int cmp;
+    tflac_s64 c;
+    if(a->sign == b->sign) {
+        tflac_u64_add(&a->v, &b->v);
+        return;
+    }
+
+    cmp = tflac_u64_cmp(&a->v, &b->v);
+    if(cmp > 0) {
+        tflac_u64_sub(&a->v, &b->v);
+        return;
+    }
+    c.v = b->v;
+    tflac_u64_sub(&c.v,&a->v);
+    a->v = c.v;
+    a->sign = b->sign;
+}
+
+TFLAC_PRIVATE TFLAC_INLINE
+void tflac_s64_sub(tflac_s64* a, const tflac_s64* b) {
+    tflac_s64 c;
+    c.v = b->v;
+    c.sign = !b->sign;
+    tflac_s64_add(a,&c);
+}
+
+TFLAC_PRIVATE TFLAC_INLINE
+void tflac_s64_abs(tflac_u64* u, const tflac_s64* s) {
+    *u = s->v;
+}
+
+TFLAC_PRIVATE TFLAC_INLINE
+void tflac_s64_cast32(tflac_s32* d, const tflac_s64* s) {
+    *d = s->sign ? -(tflac_s32)s->v.lo : (tflac_s32)s->v.lo;
+}
+
+
+#define TFLAC_U64_CAST(x,y) (tflac_u64_cast(&(x),(tflac_u32)(y)))
+#define TFLAC_U64_ADD_WORD(x,y) (tflac_u64_add_word(&x,(tflac_u32)(y)))
+
+#define TFLAC_U64_ADD(x,y) (tflac_u64_add(&(x),&(y)))
+
+#define TFLAC_U64_GT(x,y) (tflac_u64_cmp(&(x),&(y)) == 1)
+#define TFLAC_U64_LT(x,y) (tflac_u64_cmp(&(x),&(y)) == -1)
+#define TFLAC_U64_EQ(x,y) (tflac_u64_cmp(&(x),&(y)) == 0)
+
+#define TFLAC_U64_GT_WORD(x,y) (tflac_u64_cmp_word(&(x),y) == 1)
+#define TFLAC_U64_LT_WORD(x,y) (tflac_u64_cmp_word(&(x),y) == -1)
+#define TFLAC_U64_EQ_WORD(x,y) (tflac_u64_cmp_word(&(x),y) == 0)
+
+#define TFLAC_S64_CAST(x,y) (tflac_s64_cast(&(x),(tflac_s32)(y)))
+#define TFLAC_S64_ADD(x,y) (tflac_s64_add(&(x),&(y)))
+#define TFLAC_S64_SUB(x,y) (tflac_s64_sub(&(x),&(y)))
+#define TFLAC_S64_ABS(x,y) (tflac_s64_abs(&(x),&(y)))
+#define TFLAC_S64_CAST32(x,y) (tflac_s64_cast32( &(x), &(y) ))
+
+static const tflac_u64 TFLAC_U64_ZERO = { 0, 0 };
+static const tflac_u64 TFLAC_U64_MAX = { UINT32_MAX, UINT32_MAX } ;
+
+#else
+#define TFLAC_U64_CAST(x,y) ( (x) = (tflac_u64)(y) )
+#define TFLAC_U64_ADD_WORD(x,y) ((x) += (tflac_u64)(y) )
+
+#define TFLAC_U64_ADD(x,y) ( (x) += (y) )
+
+#define TFLAC_U64_GT(x,y) ((x) > (y))
+#define TFLAC_U64_LT(x,y) ((x) < (y))
+#define TFLAC_U64_EQ(x,y) ((x) == (y))
+
+#define TFLAC_U64_GT_WORD(x,y) ((x) > (tflac_u64)(y))
+#define TFLAC_U64_LT_WORD(x,y) ((x) < (tflac_u64)(y))
+#define TFLAC_U64_EQ_WORD(x,y) ((x) == (tflac_u64)(y))
+
+#define TFLAC_S64_CAST(x,y) ( (x) = (tflac_s64)(y) )
+#define TFLAC_S64_ADD(x,y) ( (x) += (y) )
+#define TFLAC_S64_SUB(x,y) ( (x) -= (y) )
+#define TFLAC_S64_ABS(x,y) ( (x) = (y) < 0 ? (tflac_u64)-(y) : (tflac_u64)(y) )
+#define TFLAC_S64_CAST32(x,y) ( (x) = (tflac_s32)(y) )
+
+#define TFLAC_U64_ZERO UINT64_C(0)
+#define TFLAC_U64_MAX UINT64_MAX
+
+#endif
+
 TFLAC_PRIVATE
 TFLAC_INLINE
-uint16_t tflac_unpack_u16be(const uint8_t* d) {
-    return (((uint16_t)d[1])    ) |
-           (((uint16_t)d[0])<< 8);
+tflac_u16 tflac_unpack_u16be(const tflac_u8* d) {
+    return (((tflac_u16)d[1])    ) |
+           (((tflac_u16)d[0])<< 8);
 }
 
 TFLAC_PRIVATE
 TFLAC_INLINE
-uint32_t tflac_unpack_u32le(const uint8_t* d) {
-    return (((uint32_t)d[0])    ) |
-           (((uint32_t)d[1])<< 8) |
-           (((uint32_t)d[2])<<16) |
-           (((uint32_t)d[3])<<24);
+tflac_u32 tflac_unpack_u32le(const tflac_u8* d) {
+    return (((tflac_u32)d[0])    ) |
+           (((tflac_u32)d[1])<< 8) |
+           (((tflac_u32)d[2])<<16) |
+           (((tflac_u32)d[3])<<24);
 }
 
 TFLAC_PRIVATE
 TFLAC_INLINE
-uint32_t tflac_unpack_u32be(const uint8_t* d) {
-    return (((uint32_t)d[3])    ) |
-           (((uint32_t)d[2])<< 8) |
-           (((uint32_t)d[1])<<16) |
-           (((uint32_t)d[0])<<24);
+tflac_u32 tflac_unpack_u32be(const tflac_u8* d) {
+    return (((tflac_u32)d[3])    ) |
+           (((tflac_u32)d[2])<< 8) |
+           (((tflac_u32)d[1])<<16) |
+           (((tflac_u32)d[0])<<24);
 }
 
 TFLAC_PRIVATE
 TFLAC_INLINE
-void tflac_pack_u32le(uint8_t* d, uint32_t n) {
-    d[0] = (uint8_t)( n       );
-    d[1] = (uint8_t)( n >> 8  );
-    d[2] = (uint8_t)( n >> 16 );
-    d[3] = (uint8_t)( n >> 24 );
+void tflac_pack_u32le(tflac_u8* d, tflac_u32 n) {
+    d[0] = (tflac_u8)( n       );
+    d[1] = (tflac_u8)( n >> 8  );
+    d[2] = (tflac_u8)( n >> 16 );
+    d[3] = (tflac_u8)( n >> 24 );
 }
 
 TFLAC_PRIVATE
 TFLAC_INLINE
-void tflac_pack_u64le(uint8_t* d, uint64_t n) {
-    d[0] = (uint8_t)( n       );
-    d[1] = (uint8_t)( n >> 8  );
-    d[2] = (uint8_t)( n >> 16 );
-    d[3] = (uint8_t)( n >> 24 );
-    d[4] = (uint8_t)( n >> 32 );
-    d[5] = (uint8_t)( n >> 40 );
-    d[6] = (uint8_t)( n >> 48 );
-    d[7] = (uint8_t)( n >> 56 );
+void tflac_pack_u32be(tflac_u8* d, tflac_u32 n) {
+    d[0] = (tflac_u8)( n >> 24 );
+    d[1] = (tflac_u8)( n >> 16 );
+    d[2] = (tflac_u8)( n >>  8 );
+    d[3] = (tflac_u8)( n       );
 }
 
 TFLAC_PRIVATE
 TFLAC_INLINE
-void tflac_pack_u64be(uint8_t* d, uint64_t n) {
-    d[0] = (uint8_t)( n >> 56 );
-    d[1] = (uint8_t)( n >> 48 );
-    d[2] = (uint8_t)( n >> 40 );
-    d[3] = (uint8_t)( n >> 32 );
-    d[4] = (uint8_t)( n >> 24 );
-    d[5] = (uint8_t)( n >> 16 );
-    d[6] = (uint8_t)( n >>  8 );
-    d[7] = (uint8_t)( n       );
+void tflac_pack_u64le(tflac_u8* d, tflac_u64 n) {
+#ifdef TFLAC_32BIT_ONLY
+    tflac_pack_u32le(&d[0],n.lo);
+    tflac_pack_u32le(&d[4],n.hi);
+#else
+    d[0] = (tflac_u8)( n       );
+    d[1] = (tflac_u8)( n >> 8  );
+    d[2] = (tflac_u8)( n >> 16 );
+    d[3] = (tflac_u8)( n >> 24 );
+    d[4] = (tflac_u8)( n >> 32 );
+    d[5] = (tflac_u8)( n >> 40 );
+    d[6] = (tflac_u8)( n >> 48 );
+    d[7] = (tflac_u8)( n >> 56 );
+#endif
+}
+
+TFLAC_PRIVATE
+TFLAC_INLINE
+void tflac_pack_u64be(tflac_u8* d, tflac_u64 n) {
+#ifdef TFLAC_32BIT_ONLY
+    tflac_pack_u32be(d,n.hi);
+    tflac_pack_u32be(d,n.lo);
+#else
+    d[0] = (tflac_u8)( n >> 56 );
+    d[1] = (tflac_u8)( n >> 48 );
+    d[2] = (tflac_u8)( n >> 40 );
+    d[3] = (tflac_u8)( n >> 32 );
+    d[4] = (tflac_u8)( n >> 24 );
+    d[5] = (tflac_u8)( n >> 16 );
+    d[6] = (tflac_u8)( n >>  8 );
+    d[7] = (tflac_u8)( n       );
+#endif
 }
 
 typedef void (*tflac_md5_calculator)(tflac*, void* samples);
-typedef void (*tflac_sample_analyzer)(tflac*, uint32_t channels, void* samples);
+typedef void (*tflac_sample_analyzer)(tflac*, tflac_u32 channels, void* samples);
 
 struct tflac_encode_params {
-    uint32_t blocksize;
-    uint32_t buffer_len;
+    tflac_u32 blocksize;
+    tflac_u32 buffer_len;
     void* buffer;
     void* samples;
-    uint32_t *used;
+    tflac_u32 *used;
     tflac_md5_calculator calculate_md5;
     tflac_sample_analyzer analyze;
 };
 typedef struct tflac_encode_params tflac_encode_params;
 
-#define TFLAC_ENCODE_PARAMS_ZERO { \
-  .blocksize = 0, \
-  .buffer_len = 0, \
-  .buffer = NULL, \
-  .samples = NULL, \
-  .used = NULL, \
-  .calculate_md5 = NULL, \
-  .analyze = NULL, \
-}
-
-const tflac_bitwriter tflac_bitwriter_zero = TFLAC_BITWRITER_ZERO;
-const tflac tflac_zero = TFLAC_ZERO;
 const char* const tflac_subframe_types[4] = {
     "CONSTANT",
     "VERBATIM",
@@ -570,7 +868,7 @@ const char* const tflac_subframe_types[4] = {
 
 TFLAC_PRIVATE
 TFLAC_CONST
-uint32_t tflac_max_size_frame(uint32_t blocksize, uint32_t channels, uint32_t bitdepth) {
+tflac_u32 tflac_max_size_frame(tflac_u32 blocksize, tflac_u32 channels, tflac_u32 bitdepth) {
     /* since blocksize is really a 16-bit value and everything else is way under that
      * we don't have to worry about overflow */
 
@@ -593,18 +891,22 @@ uint32_t tflac_max_size_frame(uint32_t blocksize, uint32_t channels, uint32_t bi
 
 TFLAC_PUBLIC
 TFLAC_CONST
-uint32_t tflac_size_frame(uint32_t blocksize, uint32_t channels, uint32_t bitdepth) {
+tflac_u32 tflac_size_frame(tflac_u32 blocksize, tflac_u32 channels, tflac_u32 bitdepth) {
     /* pad the max frame size with an extra 8 bytes for bitwriter to overflow into */
     return 8 + tflac_max_size_frame(blocksize, channels, bitdepth);
 }
 
 TFLAC_PUBLIC
 TFLAC_CONST
-uint32_t tflac_size_memory(uint32_t blocksize) {
+tflac_u32 tflac_size_memory(tflac_u32 blocksize) {
     /* assuming we need everything on a 16-byte alignment */
     return
-      15 + (5 * ( (15 + (blocksize * TFLAC_INT_SIZE)) & 0xFFFFFFF0));
+      (tflac_u32) UINT32_C(15) + (UINT32_C(5) * ( (UINT32_C(15) + (blocksize * UINT32_C(4))) & UINT32_C(0xFFFFFFF0)));
 }
+
+TFLAC_PRIVATE
+TFLAC_INLINE
+void tflac_bitwriter_init(tflac_bitwriter*);
 
 TFLAC_PRIVATE
 TFLAC_INLINE
@@ -616,45 +918,170 @@ int tflac_bitwriter_align(tflac_bitwriter*);
 
 TFLAC_PRIVATE
 TFLAC_INLINE
-int tflac_bitwriter_zeroes(tflac_bitwriter*, uint32_t bits);
+int tflac_bitwriter_zeroes(tflac_bitwriter*, tflac_u32 bits);
 
 TFLAC_PRIVATE
 TFLAC_INLINE
-int tflac_bitwriter_add(tflac_bitwriter*, uint32_t bits, uint64_t val);
+int tflac_bitwriter_add(tflac_bitwriter*, tflac_u32 bits, tflac_uint val);
+
+TFLAC_PRIVATE
+TFLAC_INLINE
+void tflac_md5_init(tflac_md5* m);
+
+TFLAC_PRIVATE
+TFLAC_INLINE
+void tflac_md5_transform(tflac_md5* m);
+
+TFLAC_PRIVATE
+TFLAC_INLINE
+void tflac_md5_addsample(tflac_md5* m, tflac_u32 bits, tflac_u32 val);
+
+TFLAC_PRIVATE
+TFLAC_INLINE
+void tflac_md5_finalize(tflac_md5* m);
 
 TFLAC_PRIVATE int tflac_encode(tflac* t, const tflac_encode_params* p);
 TFLAC_PRIVATE int tflac_encode_frame_header(tflac *);
 
 TFLAC_CONST TFLAC_PRIVATE TFLAC_INLINE
-uint32_t tflac_wasted_bits_int32(int32_t sample);
+tflac_u32 tflac_wasted_bits_int32(tflac_s32 sample);
 
 TFLAC_CONST TFLAC_PRIVATE TFLAC_INLINE
-uint32_t tflac_wasted_bits_int16(int16_t sample);
+tflac_u32 tflac_wasted_bits_int16(tflac_s16 sample);
 
 /* analyzes the samples and checks for:
  *   - are all samples constant?
  *   - wasted bps
  *   - if the sample == INT32_MIN
  */
-TFLAC_PRIVATE void tflac_analyze_samples_int16_planar(tflac*, uint32_t channel, const int16_t** samples);
-TFLAC_PRIVATE void tflac_analyze_samples_int16_interleaved(tflac*, uint32_t channel, const int16_t* samples);
-TFLAC_PRIVATE void tflac_analyze_samples_int32_planar(tflac*, uint32_t channel, const int32_t** samples);
-TFLAC_PRIVATE void tflac_analyze_samples_int32_interleaved(tflac*, uint32_t channel, const int32_t* samples);
+TFLAC_PRIVATE void tflac_analyze_samples_int16_planar(tflac*, tflac_u32 channel, const tflac_s16** samples);
+TFLAC_PRIVATE void tflac_analyze_samples_int16_interleaved(tflac*, tflac_u32 channel, const tflac_s16* samples);
+TFLAC_PRIVATE void tflac_analyze_samples_int32_planar(tflac*, tflac_u32 channel, const tflac_s32** samples);
+TFLAC_PRIVATE void tflac_analyze_samples_int32_interleaved(tflac*, tflac_u32 channel, const tflac_s32* samples);
 
-TFLAC_PRIVATE void tflac_calculate_fixed_residuals_order0(tflac* t);
-TFLAC_PRIVATE void tflac_calculate_fixed_residuals_order1(tflac* t);
-TFLAC_PRIVATE void tflac_calculate_fixed_residuals_order2(tflac* t);
-TFLAC_PRIVATE void tflac_calculate_fixed_residuals_order3(tflac* t);
-TFLAC_PRIVATE void tflac_calculate_fixed_residuals_order4(tflac* t);
+TFLAC_PRIVATE void (*tflac_cfr_order0)(
+    tflac_u32 blocksize,
+    const tflac_s32* TFLAC_RESTRICT samples,
+    tflac_s32* TFLAC_RESTRICT residuals,
+    tflac_u64* TFLAC_RESTRICT residual_error
+);
+TFLAC_PRIVATE void (*tflac_cfr_order1)(
+    tflac_u32 blocksize,
+    const tflac_s32* TFLAC_RESTRICT samples,
+    tflac_s32* TFLAC_RESTRICT residuals,
+    tflac_u64* TFLAC_RESTRICT residual_error
+);
+TFLAC_PRIVATE void (*tflac_cfr_order2)(
+    tflac_u32 blocksize,
+    const tflac_s32* TFLAC_RESTRICT samples,
+    tflac_s32* TFLAC_RESTRICT residuals,
+    tflac_u64* TFLAC_RESTRICT residual_error
+);
+TFLAC_PRIVATE void (*tflac_cfr_order3)(
+    tflac_u32 blocksize,
+    const tflac_s32* TFLAC_RESTRICT samples,
+    tflac_s32* TFLAC_RESTRICT residuals,
+    tflac_u64* TFLAC_RESTRICT residual_error
+);
+TFLAC_PRIVATE void (*tflac_cfr_order4)(
+    tflac_u32 blocksize,
+    const tflac_s32* TFLAC_RESTRICT samples,
+    tflac_s32* TFLAC_RESTRICT residuals,
+    tflac_u64* TFLAC_RESTRICT residual_error
+);
 
-/* variant functions that convert samples to 64-bit then calculate,
+TFLAC_PRIVATE void tflac_cfr_order0_std(
+    tflac_u32 blocksize,
+    const tflac_s32* TFLAC_RESTRICT samples,
+    tflac_s32* TFLAC_RESTRICT residuals,
+    tflac_u64* TFLAC_RESTRICT residual_error
+);
+TFLAC_PRIVATE void tflac_cfr_order1_std(
+    tflac_u32 blocksize,
+    const tflac_s32* TFLAC_RESTRICT samples,
+    tflac_s32* TFLAC_RESTRICT residuals,
+    tflac_u64* TFLAC_RESTRICT residual_error
+);
+TFLAC_PRIVATE void tflac_cfr_order2_std(
+    tflac_u32 blocksize,
+    const tflac_s32* TFLAC_RESTRICT samples,
+    tflac_s32* TFLAC_RESTRICT residuals,
+    tflac_u64* TFLAC_RESTRICT residual_error
+);
+TFLAC_PRIVATE void tflac_cfr_order3_std(
+    tflac_u32 blocksize,
+    const tflac_s32* TFLAC_RESTRICT samples,
+    tflac_s32* TFLAC_RESTRICT residuals,
+    tflac_u64* TFLAC_RESTRICT residual_error
+);
+TFLAC_PRIVATE void tflac_cfr_order4_std(
+    tflac_u32 blocksize,
+    const tflac_s32* TFLAC_RESTRICT samples,
+    tflac_s32* TFLAC_RESTRICT residuals,
+    tflac_u64* TFLAC_RESTRICT residual_error
+);
+
+#ifdef TFLAC_ENABLE_SSE2
+TFLAC_PRIVATE void tflac_cfr_order0_sse2(
+    tflac_u32 blocksize,
+    const tflac_s32* TFLAC_RESTRICT samples,
+    tflac_s32* TFLAC_RESTRICT residuals,
+    tflac_u64* TFLAC_RESTRICT residual_error
+);
+TFLAC_PRIVATE void tflac_cfr_order1_sse2(
+    tflac_u32 blocksize,
+    const tflac_s32* TFLAC_RESTRICT samples,
+    tflac_s32* TFLAC_RESTRICT residuals,
+    tflac_u64* TFLAC_RESTRICT residual_error
+);
+TFLAC_PRIVATE void tflac_cfr_order2_sse2(
+    tflac_u32 blocksize,
+    const tflac_s32* TFLAC_RESTRICT samples,
+    tflac_s32* TFLAC_RESTRICT residuals,
+    tflac_u64* TFLAC_RESTRICT residual_error
+);
+TFLAC_PRIVATE void tflac_cfr_order3_sse2(
+    tflac_u32 blocksize,
+    const tflac_s32* TFLAC_RESTRICT samples,
+    tflac_s32* TFLAC_RESTRICT residuals,
+    tflac_u64* TFLAC_RESTRICT residual_error
+);
+TFLAC_PRIVATE void tflac_cfr_order4_sse2(
+    tflac_u32 blocksize,
+    const tflac_s32* TFLAC_RESTRICT samples,
+    tflac_s32* TFLAC_RESTRICT residuals,
+    tflac_u64* TFLAC_RESTRICT residual_error
+);
+#endif
+
+/* variant functions that convert samples to 64-bit then calculates,
  * used when bps >= 32, 31, 30, 29 */
-TFLAC_PRIVATE void tflac_calculate_fixed_residuals_order1_64bit(tflac* t);
-TFLAC_PRIVATE void tflac_calculate_fixed_residuals_order2_64bit(tflac* t);
-TFLAC_PRIVATE void tflac_calculate_fixed_residuals_order3_64bit(tflac* t);
-TFLAC_PRIVATE void tflac_calculate_fixed_residuals_order4_64bit(tflac* t);
+TFLAC_PRIVATE void tflac_cfr_order1_64bit(
+    tflac_u32 blocksize,
+    const tflac_s32* TFLAC_RESTRICT samples,
+    tflac_s32* TFLAC_RESTRICT residuals,
+    tflac_u64* TFLAC_RESTRICT residual_error
+);
+TFLAC_PRIVATE void tflac_cfr_order2_64bit(
+    tflac_u32 blocksize,
+    const tflac_s32* TFLAC_RESTRICT samples,
+    tflac_s32* TFLAC_RESTRICT residuals,
+    tflac_u64* TFLAC_RESTRICT residual_error
+);
+TFLAC_PRIVATE void tflac_cfr_order3_64bit(
+    tflac_u32 blocksize,
+    const tflac_s32* TFLAC_RESTRICT samples,
+    tflac_s32* TFLAC_RESTRICT residuals,
+    tflac_u64* TFLAC_RESTRICT residual_error
+);
+TFLAC_PRIVATE void tflac_cfr_order4_64bit(
+    tflac_u32 blocksize,
+    const tflac_s32* TFLAC_RESTRICT samples,
+    tflac_s32* TFLAC_RESTRICT residuals,
+    tflac_u64* TFLAC_RESTRICT residual_error
+);
 
-TFLAC_PRIVATE void tflac_calculate_fixed_residuals(tflac*);
+TFLAC_PRIVATE void tflac_cfr(tflac*);
 
 /* encodes a constant subframe iff value is constant, this should always be tried first */
 TFLAC_PRIVATE int tflac_encode_subframe_constant(tflac*);
@@ -666,17 +1093,17 @@ TFLAC_PRIVATE int tflac_encode_subframe_fixed(tflac*);
 TFLAC_PRIVATE int tflac_encode_subframe_verbatim(tflac*);
 
 /* encodes a subframe, tries constant, fixed, then verbatim */
-TFLAC_PRIVATE int tflac_encode_subframe(tflac*, uint8_t channel);
+TFLAC_PRIVATE int tflac_encode_subframe(tflac*, tflac_u8 channel);
 
-TFLAC_PRIVATE int tflac_encode_residuals(tflac*, uint8_t predictor_order, uint8_t partition_order);
+TFLAC_PRIVATE int tflac_encode_residuals(tflac*, tflac_u8 predictor_order, tflac_u8 partition_order);
 
 /* various tables to define at the end of the file */
-TFLAC_PRIVATE const uint16_t tflac_crc16_tables[8][256];
-TFLAC_PRIVATE const uint8_t tflac_crc8_table[256];
+TFLAC_PRIVATE const tflac_u16 tflac_crc16_tables[8][256];
+TFLAC_PRIVATE const tflac_u8 tflac_crc8_table[256];
 
 
-TFLAC_PRIVATE TFLAC_INLINE uint8_t tflac_crc8(const uint8_t* d, uint32_t len, uint8_t crc8) {
-    uint32_t i = 0;
+TFLAC_PRIVATE TFLAC_INLINE tflac_u8 tflac_crc8(const tflac_u8* d, tflac_u32 len, tflac_u8 crc8) {
+    tflac_u32 i = 0;
     for(i=0;i<len;i++) {
         crc8 = tflac_crc8_table[crc8 ^ d[i]];
     }
@@ -686,7 +1113,7 @@ TFLAC_PRIVATE TFLAC_INLINE uint8_t tflac_crc8(const uint8_t* d, uint32_t len, ui
 /*
  * https://freac.org/developer-blog-mainmenu-9/14-freac/277-fastcrc
  */
-TFLAC_PRIVATE TFLAC_INLINE uint16_t tflac_crc16(const uint8_t* d, uint32_t len, uint16_t crc16) {
+TFLAC_PRIVATE TFLAC_INLINE tflac_u16 tflac_crc16(const tflac_u8* d, tflac_u32 len, tflac_u16 crc16) {
     while(len >= 8) {
         crc16 ^= d[0] << 8 | d[1];
         crc16 =
@@ -706,7 +1133,7 @@ TFLAC_PRIVATE TFLAC_INLINE uint16_t tflac_crc16(const uint8_t* d, uint32_t len, 
 }
 
 TFLAC_PRIVATE
-const uint32_t tflac_md5_K[64] = {
+const tflac_u32 tflac_md5_K[64] = {
     0xd76aa478, 0xe8c7b756, 0x242070db, 0xc1bdceee,
     0xf57c0faf, 0x4787c62a, 0xa8304613, 0xfd469501,
     0x698098d8, 0x8b44f7af, 0xffff5bb1, 0x895cd7be,
@@ -726,7 +1153,7 @@ const uint32_t tflac_md5_K[64] = {
 };
 
 TFLAC_PRIVATE
-const uint8_t tflac_md5_s[64] = {
+const tflac_u8 tflac_md5_s[64] = {
     7, 12, 17, 22,  7, 12, 17, 22,  7, 12, 17, 22,  7, 12, 17, 22,
     5,  9, 14, 20,  5,  9, 14, 20,  5,  9, 14, 20,  5,  9, 14, 20,
     4, 11, 16, 23,  4, 11, 16, 23,  4, 11, 16, 23,  4, 11, 16, 23,
@@ -734,17 +1161,17 @@ const uint8_t tflac_md5_s[64] = {
 };
 
 TFLAC_CONST TFLAC_PRIVATE TFLAC_INLINE
-uint32_t tflac_wasted_bits_int16(int16_t sample) {
-#if defined(_WIN32)
+tflac_u32 tflac_wasted_bits_int16(tflac_s16 sample) {
+#if defined(_MSC_VER) && _MSC_VER >= 1400
     unsigned long index;
     _BitScanForward(&index, 0xFF00 | ((unsigned long)sample) );
-    return (uint32_t)index;
+    return (tflac_u32)index;
 #elif __GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 6)
-    return (uint32_t)__builtin_ctz( 0xFF00 | ((unsigned int)sample) );
+    return (tflac_u32)__builtin_ctz( 0xFF00 | ((unsigned int)sample) );
 #else
     /* TODO optimize for other platforms? */
-    uint16_t s = (uint16_t)sample;
-    uint32_t i = 0;
+    tflac_u16 s = (tflac_u16)sample;
+    tflac_u32 i = 0;
     while(i < 15) {
         if(s >> i & 1) break;
         i++;
@@ -754,17 +1181,24 @@ uint32_t tflac_wasted_bits_int16(int16_t sample) {
 }
 
 TFLAC_CONST TFLAC_PRIVATE TFLAC_INLINE
-uint32_t tflac_wasted_bits_int32(int32_t sample) {
-#if defined(_WIN32)
+tflac_u32 tflac_wasted_bits_int32(tflac_s32 sample) {
+#if defined(_MSC_VER) && _MSC_VER >= 1400
+#ifdef TFLAC_X64
     unsigned long index;
     _BitScanForward64(&index, 0xFFFFFFFF00000000ULL | (unsigned __int64)sample);
-    return (uint32_t)index;
+    return (tflac_u32)index;
+#else
+    unsigned long index;
+    if(sample == 0) return 32;
+    _BitScanForward(&index, (unsigned long) sample);
+    return (tflac_u32)index;
+#endif
 #elif __GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 6)
-    return (uint32_t)__builtin_ctzll(0xFFFFFFFF00000000ULL | (unsigned long long)sample);
+    return (tflac_u32)__builtin_ctzll(0xFFFFFFFF00000000ULL | (unsigned long long)sample);
 #else
     /* TODO optimize for other platforms? */
-    uint32_t s = (uint32_t)sample;
-    uint32_t i = 0;
+    tflac_u32 s = (tflac_u32)sample;
+    tflac_u32 i = 0;
     while(i < 31) {
         if(s >> i & 1) break;
         i++;
@@ -776,156 +1210,132 @@ uint32_t tflac_wasted_bits_int32(int32_t sample) {
 
 #define TFLAC_MD5_LEFTROTATE(x, s) (x << s | x >> (32-s))
 
-/* the way the bitwriter works is, all bits are scaled up immediately,
- * and we never use all (x) bits at once (it maxes out at (x-1).
- *
- * Say we're using 32 bits, when initialized the values will
- * be:
- *   bits = 0
- *   val = 0x00000000
- *
- * add 1 bit, it gets scaled up 31 bits and OR'd so now we have:
- *    bits = 1
- *    val = 0x80000000 (or b10000....)
- *
- * Now we add say, a 4-bit value of 1011, that gets scaled up
- *  (32 - 1 - 4) = 27 bits and OR'd so we get:
- *    bits = 5
- *    val = 0xD8000000 (or b1101 1000 0000....)
- *
- * Say we get to 9 bits:
- *    val = 0xD8100000 (or b1101 1000 1000....)
- *
- * To flush we figure out the number of whole bytes used
- * and remaining bits, so it in this case 1 byte, 1 bit.
- *
- * We encode to big-endian to our output buffer, then
- * left-shift the value by bits - remainder so:
- *   val <<= (9-1) = discard those 8 bits just written out
- *   val = 0x10000000 (or b1000 0000....)
- *   bits = 1
- *
- * By ensuring we never hit the full number of bits we
- * gaurantee we won't hit undefined behavior.
- *
- * We also request (x/8) bytes more than we really need
- * so we can always just encode all (x/8) bytes no matter
- * what.
- */
+TFLAC_PRIVATE
+TFLAC_INLINE
+void tflac_bitwriter_init(tflac_bitwriter* bw) {
+    bw->val = 0;
+    bw->bits = 0;
+    bw->pos = 0;
+    bw->len = 0;
+    bw->buffer = NULL;
+}
 
 TFLAC_PRIVATE
+TFLAC_INLINE
 int tflac_bitwriter_flush(tflac_bitwriter* bw) {
-    uint32_t bytes = 0;
-    uint32_t bits = 0;
+    tflac_u32 bytes = 0;
+    tflac_u32 bits = 0;
 
     TFLAC_ASSERT(bw->bits != TFLAC_BW_BITS);
 
-    bytes = bw->bits >> 3;
-    bits  = bw->bits & 0x07;
+    bytes = bw->bits / CHAR_BIT;
+    bits  = bw->bits % CHAR_BIT;
 
     if(bytes > bw->len - bw->pos) return -1;
 
-    tflac_pack_u64be(&bw->buffer[bw->pos],bw->val);
+    tflac_pack_uint(&bw->buffer[bw->pos],bw->val);
 
     bw->pos += bytes;
     bw->bits = bits;
-    bw->val = ((uint64_t)(bw->buffer[bw->pos])) << 56;
+
+    bw->val = ((tflac_uint)(bw->buffer[bw->pos])) << ( TFLAC_BW_BITS - CHAR_BIT );
 
     return 0;
 }
+
 
 /* used to write a bunch of zero-bits */
 TFLAC_PRIVATE
-int tflac_bitwriter_zeroes(tflac_bitwriter* bw, uint32_t bits) {
-    uint32_t bytes = 0;
+TFLAC_INLINE
+int tflac_bitwriter_zeroes(tflac_bitwriter* bw, tflac_u32 bits) {
+    tflac_u32 bytes = 0;
 
     bits += bw->bits;
 
-    bytes = bits >> 3;
-    bits = bits & 0x07;
+    bytes = bits / CHAR_BIT;
+    bits = bits % CHAR_BIT;
 
     if(bytes > bw->len - bw->pos) return -1;
 
-    tflac_pack_u64be(&bw->buffer[bw->pos],bw->val);
+    tflac_pack_uint(&bw->buffer[bw->pos],bw->val);
 
-    while(bytes > 7) {
-        bw->pos += 8;
-        bytes -= 8;
-        tflac_pack_u64be(&bw->buffer[bw->pos],0);
+    while(bytes >= sizeof(tflac_uint)) {
+        bw->pos += (tflac_u32)sizeof(tflac_uint);
+        bytes   -= (tflac_u32)sizeof(tflac_uint);
+        tflac_pack_uint(&bw->buffer[bw->pos],0);
     }
 
     bw->pos += bytes;
-    bw->val = ((uint64_t)(bw->buffer[bw->pos])) << 56;
     bw->bits = bits;
+
+    bw->val = ((tflac_uint)(bw->buffer[bw->pos])) << ( TFLAC_BW_BITS - CHAR_BIT );
 
     return 0;
 }
 
-
-/* assumptions:
- *   bits is never 0 or 64
- *   bw->bits + bits < 64, always */
 TFLAC_PRIVATE
-int tflac_bitwriter_add(tflac_bitwriter *bw, uint32_t bits, uint64_t val) {
-    uint64_t mask = UINT64_MAX;
+TFLAC_INLINE
+int tflac_bitwriter_add(tflac_bitwriter *bw, tflac_u32 bits, tflac_uint val) {
+    const tflac_uint mask = TFLAC_UINT_MAX << 1;
+    tflac_u32 b;
     int r;
 
     TFLAC_ASSERT(bits > 0);
 
-    if(bw->bits + bits >= TFLAC_BW_BITS) {
+    val <<= (TFLAC_BW_BITS - bits);
+
+    while(bw->bits + bits >= TFLAC_BW_BITS) {
+        b = TFLAC_BW_BITS - bw->bits - 1;
+        b = b > bits ? bits : b;
+        bw->val |= (val >> bw->bits);
+        bw->bits += b;
+        bw->val &= mask; /* always make sure the last bit is 0 */
         if( (r = tflac_bitwriter_flush(bw)) != 0) return r;
+        val <<= b;
+        bits -= b;
     }
 
     TFLAC_ASSERT(bw->bits + bits < TFLAC_BW_BITS);
 
-    /* examples with simple numbers:
-     * TFLAC_BW_BITS = 16
-     * bw->bits = 0;
-     * bits = 16
-     *
-     * should shift zero:
-     * TFLAC_BW_BITS - bw->bits - bits = 0; done
-     *
-     * bw->bits = 1
-     * bits = 15;
-     * should still shift zero
-     * TFLAC_BW_BITS - bits - bw->bits; done
-     *
-     * bw->bits = 2;
-     * bits = 6
-     * incoming: xxxxxxxxxx111111
-     * changeto: xx111111xxxxxxxx
-     * should shift 8
-     * 16 - 6 - 2 = 8
-     */
-
-    mask <<= bits;
+    bw->val |= (val >> bw->bits);
     bw->bits += bits;
-    bw->val |= (val & (~mask)) << (TFLAC_BW_BITS - bw->bits);
 
     return 0;
 }
 
 
 TFLAC_PRIVATE
+TFLAC_INLINE
 int tflac_bitwriter_align(tflac_bitwriter *bw) {
-    uint32_t rem =  (8 - (bw->bits % 8)) & 0x07;
+    tflac_u32 rem =  (CHAR_BIT - (bw->bits % 8)) % CHAR_BIT;
     if(rem) return tflac_bitwriter_add(bw, rem, 0);
     return 0;
 }
 
 TFLAC_PRIVATE
+TFLAC_INLINE
+void tflac_md5_init(tflac_md5* m) {
+    m->a = 0x67452301;
+    m->b = 0xefcdab89;
+    m->c = 0x98badcfe;
+    m->d = 0x10325476;
+    m->total = TFLAC_U64_ZERO;
+    m->pos = 0;
+}
+
+TFLAC_PRIVATE
+TFLAC_INLINE
 void tflac_md5_transform(tflac_md5* m) {
-    uint32_t A = m->a;
-    uint32_t B = m->b;
-    uint32_t C = m->c;
-    uint32_t D = m->d;
+    tflac_u32 A = m->a;
+    tflac_u32 B = m->b;
+    tflac_u32 C = m->c;
+    tflac_u32 D = m->d;
 
-    uint32_t F = 0;
-    uint32_t g = 0;
-    uint32_t i = 0;
+    tflac_u32 F = 0;
+    tflac_u32 g = 0;
+    tflac_u32 i = 0;
 
-    uint32_t M[16];
+    tflac_u32 M[16];
 
     M[0]  = tflac_unpack_u32le(&m->buffer[0  * 4]);
     M[1]  = tflac_unpack_u32le(&m->buffer[1  * 4]);
@@ -1004,15 +1414,15 @@ void tflac_md5_transform(tflac_md5* m) {
 
 TFLAC_PRIVATE
 TFLAC_INLINE
-void tflac_md5_addsample(tflac_md5* m, uint32_t bits, uint32_t val) {
+void tflac_md5_addsample(tflac_md5* m, tflac_u32 bits, tflac_u32 val) {
     /* ensure bits are aligned on a byte */
-    uint8_t byte;
+    tflac_u8 byte;
     bits = (7 + bits) & 0xF8;
 
-    m->total += bits;
+    TFLAC_U64_ADD_WORD(m->total,bits);
 
     while(bits) {
-        byte = (uint8_t)val;
+        byte = (tflac_u8)val;
         m->buffer[m->pos++] = byte;
         if(m->pos == 64) {
             tflac_md5_transform(m);
@@ -1024,8 +1434,9 @@ void tflac_md5_addsample(tflac_md5* m, uint32_t bits, uint32_t val) {
 }
 
 TFLAC_PRIVATE
+TFLAC_INLINE
 void tflac_md5_finalize(tflac_md5* m) {
-    uint64_t len = m->total;
+    tflac_u64 len = m->total;
     /* add the stop bit */
     tflac_md5_addsample(m, 8, 0x80);
 
@@ -1039,44 +1450,44 @@ void tflac_md5_finalize(tflac_md5* m) {
 }
 
 TFLAC_PRIVATE
-void tflac_md5_digest(const tflac_md5* m, uint8_t out[16]) {
-    out[0]  = (uint8_t)(m->a);
-    out[1]  = (uint8_t)(m->a >> 8);
-    out[2]  = (uint8_t)(m->a >> 16);
-    out[3]  = (uint8_t)(m->a >> 24);
-    out[4]  = (uint8_t)(m->b);
-    out[5]  = (uint8_t)(m->b >> 8);
-    out[6]  = (uint8_t)(m->b >> 16);
-    out[7]  = (uint8_t)(m->b >> 24);
-    out[8]  = (uint8_t)(m->c);
-    out[9]  = (uint8_t)(m->c >> 8);
-    out[10] = (uint8_t)(m->c >> 16);
-    out[11] = (uint8_t)(m->c >> 24);
-    out[12] = (uint8_t)(m->d);
-    out[13] = (uint8_t)(m->d >> 8);
-    out[14] = (uint8_t)(m->d >> 16);
-    out[15] = (uint8_t)(m->d >> 24);
+void tflac_md5_digest(const tflac_md5* m, tflac_u8 out[16]) {
+    out[0]  = (tflac_u8)(m->a);
+    out[1]  = (tflac_u8)(m->a >> 8);
+    out[2]  = (tflac_u8)(m->a >> 16);
+    out[3]  = (tflac_u8)(m->a >> 24);
+    out[4]  = (tflac_u8)(m->b);
+    out[5]  = (tflac_u8)(m->b >> 8);
+    out[6]  = (tflac_u8)(m->b >> 16);
+    out[7]  = (tflac_u8)(m->b >> 24);
+    out[8]  = (tflac_u8)(m->c);
+    out[9]  = (tflac_u8)(m->c >> 8);
+    out[10] = (tflac_u8)(m->c >> 16);
+    out[11] = (tflac_u8)(m->c >> 24);
+    out[12] = (tflac_u8)(m->d);
+    out[13] = (tflac_u8)(m->d >> 8);
+    out[14] = (tflac_u8)(m->d >> 16);
+    out[15] = (tflac_u8)(m->d >> 24);
 }
 
 /* this will technically go over a byte for odd bit-depths but, whatever */
 TFLAC_CONST TFLAC_PRIVATE
-uint32_t tflac_verbatim_subframe_len(uint32_t blocksize, uint32_t bitdepth) {
+tflac_u32 tflac_verbatim_subframe_len(tflac_u32 blocksize, tflac_u32 bitdepth) {
     return 1 + ( (blocksize * bitdepth) / 8) +
       ( !!((blocksize * bitdepth % 8)));
 }
 
 TFLAC_PRIVATE
 int tflac_encode_subframe_verbatim(tflac* t) {
-    uint32_t i = 0;
-    uint8_t w = (uint8_t)t->wasted_bits;
-    const tflac_int* residuals_0 = TFLAC_ASSUME_ALIGNED(t->residuals[0], 16);
+    tflac_u32 i = 0;
+    tflac_u8 w = (tflac_u8)t->wasted_bits;
+    const tflac_s32* residuals_0 = TFLAC_ASSUME_ALIGNED(t->residuals[0], 16);
     int r;
 
     if( (r = tflac_bitwriter_add(&t->bw, 8, 0x02 | (!!w) )) != 0) return r;
     if(w) if( (r = tflac_bitwriter_add(&t->bw, w, 1)) != 0) return r;
 
     for(i=0;i<t->cur_blocksize;i++) {
-        if( (r = tflac_bitwriter_add(&t->bw, t->bitdepth - t->wasted_bits, (tflac_uint)residuals_0[i])) != 0) return r;
+        if( (r = tflac_bitwriter_add(&t->bw, t->bitdepth - t->wasted_bits, (tflac_u32)residuals_0[i])) != 0) return r;
     }
 
     return tflac_bitwriter_flush(&t->bw);
@@ -1086,69 +1497,70 @@ TFLAC_PRIVATE
 int tflac_encode_subframe_constant(tflac* t) {
     int r;
     if( (r = tflac_bitwriter_add(&t->bw, 8, 0x00)) != 0) return r;
-    if( (r = tflac_bitwriter_add(&t->bw, t->bitdepth, ((tflac_uint) t->residuals[0][0]) << t->wasted_bits)) != 0) return r;
+    if( (r = tflac_bitwriter_add(&t->bw, t->bitdepth, ((tflac_u32) t->residuals[0][0]) << t->wasted_bits)) != 0) return r;
     return tflac_bitwriter_flush(&t->bw);
 }
 
 TFLAC_PRIVATE TFLAC_INLINE void tflac_rescale_samples(tflac* t) {
-    uint32_t i = 0;
-    tflac_int* TFLAC_RESTRICT residuals_0 = TFLAC_ASSUME_ALIGNED(t->residuals[0], 16);
+    tflac_u32 i = 0;
+    tflac_s32* TFLAC_RESTRICT residuals_0 = TFLAC_ASSUME_ALIGNED(t->residuals[0], 16);
 
     if( (!t->constant) && t->wasted_bits) {
         /* rescale residuals for order 0 */
         for(i=0;i<t->cur_blocksize;i++) {
             residuals_0[i] = residuals_0[i] / (1 << t->wasted_bits);
         }
-        t->residual_errors[0] = 0; /* since we scaled down there's no way we have INT32_MIN in there anymore */
+        /* since we scaled down there's no way we have INT32_MIN in there anymore */
+        t->residual_errors[0] = TFLAC_U64_ZERO;
     }
 
     return;
 }
 
-TFLAC_PRIVATE void tflac_update_md5_int16_planar(tflac* t, const int16_t** samples) {
-    uint32_t i = 0;
-    uint32_t c = 0;
+TFLAC_PRIVATE void tflac_update_md5_int16_planar(tflac* t, const tflac_s16** samples) {
+    tflac_u32 i = 0;
+    tflac_u32 c = 0;
 
     for(i=0;i<t->cur_blocksize;i++) {
         for(c=0;i<t->channels;c++) {
-            tflac_md5_addsample(&t->md5_ctx,t->bitdepth,(uint32_t)samples[c][i]);
+            tflac_md5_addsample(&t->md5_ctx,t->bitdepth,(tflac_u32)samples[c][i]);
         }
     }
 }
 
-TFLAC_PRIVATE void tflac_update_md5_int16_interleaved(tflac* t, const int16_t* samples) {
-    uint32_t i = 0;
+TFLAC_PRIVATE void tflac_update_md5_int16_interleaved(tflac* t, const tflac_s16* samples) {
+    tflac_u32 i = 0;
 
     for(i=0;i<t->cur_blocksize * t->channels;i++) {
-        tflac_md5_addsample(&t->md5_ctx,t->bitdepth,(uint32_t)samples[i]);
+        tflac_md5_addsample(&t->md5_ctx,t->bitdepth,(tflac_u32)samples[i]);
     }
 }
 
-TFLAC_PRIVATE void tflac_update_md5_int32_planar(tflac* t, const int32_t** samples) {
-    uint32_t i = 0;
-    uint32_t c = 0;
+TFLAC_PRIVATE void tflac_update_md5_int32_planar(tflac* t, const tflac_s32** samples) {
+    tflac_u32 i = 0;
+    tflac_u32 c = 0;
 
     for(i=0;i<t->cur_blocksize;i++) {
         for(c=0;i<t->channels;c++) {
-            tflac_md5_addsample(&t->md5_ctx,t->bitdepth,(uint32_t)samples[c][i]);
+            tflac_md5_addsample(&t->md5_ctx,t->bitdepth,(tflac_u32)samples[c][i]);
         }
     }
 }
 
-TFLAC_PRIVATE void tflac_update_md5_int32_interleaved(tflac* t, const int32_t* samples) {
-    uint32_t i = 0;
+TFLAC_PRIVATE void tflac_update_md5_int32_interleaved(tflac* t, const tflac_s32* samples) {
+    tflac_u32 i = 0;
 
     for(i=0;i<t->cur_blocksize * t->channels;i++) {
-        tflac_md5_addsample(&t->md5_ctx,t->bitdepth,(uint32_t)samples[i]);
+        tflac_md5_addsample(&t->md5_ctx,t->bitdepth,(tflac_u32)samples[i]);
     }
 }
 
-TFLAC_PRIVATE void tflac_analyze_samples_int16_planar(tflac* t, uint32_t channel, const int16_t** _samples) {
-    uint32_t wasted_bits = 0;
-    uint16_t non_constant = 0;
-    uint32_t i = 0;
-    const int16_t* samples = _samples[channel];
-    tflac_int* TFLAC_RESTRICT residuals_0 = TFLAC_ASSUME_ALIGNED(t->residuals[0], 16);
+TFLAC_PRIVATE void tflac_analyze_samples_int16_planar(tflac* t, tflac_u32 channel, const tflac_s16** _samples) {
+    tflac_u32 wasted_bits = 0;
+    tflac_u16 non_constant = 0;
+    tflac_u32 i = 0;
+    const tflac_s16* samples = _samples[channel];
+    tflac_s32* TFLAC_RESTRICT residuals_0 = TFLAC_ASSUME_ALIGNED(t->residuals[0], 16);
 
     t->wasted_bits = 16;
     t->constant    =  0;
@@ -1157,9 +1569,9 @@ TFLAC_PRIVATE void tflac_analyze_samples_int16_planar(tflac* t, uint32_t channel
         wasted_bits = tflac_wasted_bits_int16(samples[i]);
         if(wasted_bits < t->wasted_bits) t->wasted_bits = wasted_bits;
 
-        non_constant |= (uint16_t)samples[i] ^ (uint16_t)samples[0];
+        non_constant |= (tflac_u16)samples[i] ^ (tflac_u16)samples[0];
 
-        residuals_0[i] = (tflac_int)samples[i];
+        residuals_0[i] = (tflac_s32)samples[i];
     }
 
     t->constant = !non_constant;
@@ -1168,12 +1580,12 @@ TFLAC_PRIVATE void tflac_analyze_samples_int16_planar(tflac* t, uint32_t channel
     return;
 }
 
-TFLAC_PRIVATE void tflac_analyze_samples_int16_interleaved(tflac* t, uint32_t channel, const int16_t* samples) {
-    uint32_t wasted_bits = 0;
-    uint16_t non_constant = 0;
-    uint32_t i = 0;
-    uint32_t j = 0;
-    tflac_int* TFLAC_RESTRICT residuals_0 = TFLAC_ASSUME_ALIGNED(t->residuals[0], 16);
+TFLAC_PRIVATE void tflac_analyze_samples_int16_interleaved(tflac* t, tflac_u32 channel, const tflac_s16* samples) {
+    tflac_u32 wasted_bits = 0;
+    tflac_u16 non_constant = 0;
+    tflac_u32 i = 0;
+    tflac_u32 j = 0;
+    tflac_s32* TFLAC_RESTRICT residuals_0 = TFLAC_ASSUME_ALIGNED(t->residuals[0], 16);
 
     t->wasted_bits = 16;
     t->constant    =  0;
@@ -1183,9 +1595,9 @@ TFLAC_PRIVATE void tflac_analyze_samples_int16_interleaved(tflac* t, uint32_t ch
         wasted_bits = tflac_wasted_bits_int16(samples[j]);
         if(wasted_bits < t->wasted_bits) t->wasted_bits = wasted_bits;
 
-        non_constant |= (uint16_t)samples[j] ^ (uint16_t)samples[0];
+        non_constant |= (tflac_u16)samples[j] ^ (tflac_u16)samples[0];
 
-        residuals_0[i] = (tflac_int)samples[j];
+        residuals_0[i] = (tflac_s32)samples[j];
         j+=t->channels;
     }
 
@@ -1195,13 +1607,13 @@ TFLAC_PRIVATE void tflac_analyze_samples_int16_interleaved(tflac* t, uint32_t ch
     return;
 }
 
-TFLAC_PRIVATE void tflac_analyze_samples_int32_planar(tflac* t, uint32_t channel, const int32_t** _samples) {
-    uint32_t wasted_bits = 0;
-    uint32_t non_constant = 0;
-    uint32_t min_found = 0;
-    uint32_t i = 0;
-    const int32_t* samples = _samples[channel];
-    tflac_int* TFLAC_RESTRICT residuals_0 = TFLAC_ASSUME_ALIGNED(t->residuals[0], 16);
+TFLAC_PRIVATE void tflac_analyze_samples_int32_planar(tflac* t, tflac_u32 channel, const tflac_s32** _samples) {
+    tflac_u32 wasted_bits = 0;
+    tflac_u32 non_constant = 0;
+    tflac_u32 min_found = 0;
+    tflac_u32 i = 0;
+    const tflac_s32* samples = _samples[channel];
+    tflac_s32* TFLAC_RESTRICT residuals_0 = TFLAC_ASSUME_ALIGNED(t->residuals[0], 16);
 
     t->wasted_bits = 32;
     t->constant    = 0;
@@ -1210,26 +1622,26 @@ TFLAC_PRIVATE void tflac_analyze_samples_int32_planar(tflac* t, uint32_t channel
         wasted_bits = tflac_wasted_bits_int32(samples[i]);
         if(wasted_bits < t->wasted_bits) t->wasted_bits = wasted_bits;
 
-        non_constant |= (uint32_t)samples[i] ^ (uint32_t)samples[0];
+        non_constant |= (tflac_u32)samples[i] ^ (tflac_u32)samples[0];
 
-        residuals_0[i] = (tflac_int)samples[i];
+        residuals_0[i] = (tflac_s32)samples[i];
         min_found |= residuals_0[i] == INT32_MIN;
     }
 
     t->constant = !non_constant;
     t->wasted_bits &= 0x1f;
-    t->residual_errors[0] = min_found ? UINT64_MAX : 0;
+    t->residual_errors[0] = min_found ? TFLAC_U64_MAX : TFLAC_U64_ZERO;
 
     return;
 }
 
-TFLAC_PRIVATE void tflac_analyze_samples_int32_interleaved(tflac* t, uint32_t channel, const int32_t* samples) {
-    uint32_t wasted_bits = 0;
-    uint32_t non_constant = 0;
-    uint32_t min_found = 0;
-    uint32_t i = 0;
-    uint32_t j = 0;
-    tflac_int* TFLAC_RESTRICT residuals_0 = TFLAC_ASSUME_ALIGNED(t->residuals[0], 16);
+TFLAC_PRIVATE void tflac_analyze_samples_int32_interleaved(tflac* t, tflac_u32 channel, const tflac_s32* samples) {
+    tflac_u32 wasted_bits = 0;
+    tflac_u32 non_constant = 0;
+    tflac_u32 min_found = 0;
+    tflac_u32 i = 0;
+    tflac_u32 j = 0;
+    tflac_s32* TFLAC_RESTRICT residuals_0 = TFLAC_ASSUME_ALIGNED(t->residuals[0], 16);
 
     t->wasted_bits = 32;
     t->constant    = 0;
@@ -1239,374 +1651,892 @@ TFLAC_PRIVATE void tflac_analyze_samples_int32_interleaved(tflac* t, uint32_t ch
         wasted_bits = tflac_wasted_bits_int32(samples[j]);
         if(wasted_bits < t->wasted_bits) t->wasted_bits = wasted_bits;
 
-        non_constant |= (uint32_t)samples[j] ^ (uint32_t)samples[0];
+        non_constant |= (tflac_u32)samples[j] ^ (tflac_u32)samples[0];
 
-        residuals_0[i] = (tflac_int)samples[j];
+        residuals_0[i] = (tflac_s32)samples[j];
         min_found |= residuals_0[i] == INT32_MIN;
         j += t->channels;
     }
 
     t->constant = !non_constant;
     t->wasted_bits &= 0x1f;
-    t->residual_errors[0] = min_found ? UINT64_MAX : 0;
+    t->residual_errors[0] = min_found ? TFLAC_U64_MAX : TFLAC_U64_ZERO;
 
     return;
 }
 
-TFLAC_PRIVATE void tflac_calculate_fixed_residuals_order0(tflac* t) {
-    uint32_t i = 0;
+TFLAC_PRIVATE void tflac_cfr_order0_std(
+      tflac_u32 blocksize,
+      const tflac_s32* TFLAC_RESTRICT _samples,
+      tflac_s32* TFLAC_RESTRICT _residuals,
+      tflac_u64* TFLAC_RESTRICT residual_error) {
 
-    tflac_int* TFLAC_RESTRICT residuals = TFLAC_ASSUME_ALIGNED(t->residuals[0], 16);
-    tflac_uint residual_abs = 0;
+    tflac_u32 i = 0;
+    const tflac_s32* TFLAC_RESTRICT samples = TFLAC_ASSUME_ALIGNED(_samples, 16);
+    tflac_u32 residual_abs = 0;
+    tflac_u64 residual_err;
 
-    uint64_t residual_err = 0;
+    residual_err = TFLAC_U64_ZERO;
 
-    if(t->residual_errors[0] == UINT64_MAX) return;
-
-    for(i=4;i<t->cur_blocksize;i++) {
-        residual_abs = residuals[i] < 0 ? -(tflac_uint)residuals[i] : (tflac_uint)residuals[i];
-        residual_err += residual_abs;
+    for(i=4;i<blocksize;i++) {
+        residual_abs = samples[i] < 0 ? (tflac_u32)-samples[i] : (tflac_u32)samples[i];
+        TFLAC_U64_ADD_WORD(residual_err,residual_abs);
     }
 
-    t->residual_errors[0] = residual_err;
+    *residual_error = residual_err;
+    (void)_residuals;
 }
 
-TFLAC_PRIVATE void tflac_calculate_fixed_residuals_order1(tflac* t) {
-    uint32_t i = 0;
 
-    const tflac_int* TFLAC_RESTRICT samples = TFLAC_ASSUME_ALIGNED(t->residuals[0], 16);
-    tflac_int* TFLAC_RESTRICT residuals = TFLAC_ASSUME_ALIGNED(t->residuals[1], 16);
+TFLAC_PRIVATE void tflac_cfr_order1_std(
+      tflac_u32 blocksize,
+      const tflac_s32* TFLAC_RESTRICT _samples,
+      tflac_s32* TFLAC_RESTRICT _residuals,
+      tflac_u64* TFLAC_RESTRICT residual_error) {
+    tflac_u32 i = 0;
 
-    tflac_uint residual_abs = 0;
-    uint64_t residual_err = 0;
+    const tflac_s32* TFLAC_RESTRICT samples = TFLAC_ASSUME_ALIGNED(_samples, 16);
+
+    tflac_s32* TFLAC_RESTRICT residuals = TFLAC_ASSUME_ALIGNED(_residuals, 16);
+    tflac_u32 residual_abs = 0;
+    tflac_u64 residual_err;
+
+    residual_err = TFLAC_U64_ZERO;
 
     residuals[0] = samples[0];
     residuals[1] = samples[1] - samples[0];
     residuals[2] = samples[2] - samples[1];
     residuals[3] = samples[3] - samples[2];
 
-    for(i=4;i<t->cur_blocksize;i++) {
+    for(i=4;i<blocksize;i++) {
         residuals[i] = samples[i] - samples[i-1];
-        residual_abs = residuals[i] < 0 ? -(tflac_uint)residuals[i] : (tflac_uint)residuals[i];
-        residual_err += residual_abs;
+        residual_abs = residuals[i] < 0 ? (tflac_u32)-residuals[i] : (tflac_u32)residuals[i];
+        TFLAC_U64_ADD_WORD(residual_err, residual_abs);
     }
 
-    t->residual_errors[1] = residual_err;
+    *residual_error = residual_err;
 }
 
-TFLAC_PRIVATE void tflac_calculate_fixed_residuals_order2(tflac* t) {
-    uint32_t i = 0;
+TFLAC_PRIVATE void tflac_cfr_order2_std(
+      tflac_u32 blocksize,
+      const tflac_s32* TFLAC_RESTRICT _samples,
+      tflac_s32* TFLAC_RESTRICT _residuals,
+      tflac_u64* TFLAC_RESTRICT residual_error) {
+    tflac_u32 i = 0;
 
-    const tflac_int* TFLAC_RESTRICT samples = TFLAC_ASSUME_ALIGNED(t->residuals[0], 16);
-    tflac_int* TFLAC_RESTRICT residuals = TFLAC_ASSUME_ALIGNED(t->residuals[2], 16);
+    const tflac_s32* TFLAC_RESTRICT samples = TFLAC_ASSUME_ALIGNED(_samples, 16);
 
-    tflac_uint residual_abs = 0;
-    uint64_t residual_err = 0;
+    tflac_s32* TFLAC_RESTRICT residuals = TFLAC_ASSUME_ALIGNED(_residuals, 16);
+    tflac_u32 residual_abs = 0;
+    tflac_u64 residual_err;
+    residual_err = TFLAC_U64_ZERO;
 
     residuals[0] = samples[0];
     residuals[1] = samples[1];
     residuals[2] = samples[2] - (2 * samples[1]) - (-1 * samples[0]);
     residuals[3] = samples[3] - (2 * samples[2]) - (-1 * samples[1]);;
 
-    for(i=4;i<t->cur_blocksize;i++) {
+    for(i=4;i<blocksize;i++) {
         residuals[i] = samples[i] - (2 * samples[i-1]) - (-1 * samples[i-2] );
-        residual_abs = residuals[i] < 0 ? -(tflac_uint)residuals[i] : (tflac_uint)residuals[i];
-        residual_err += residual_abs;
+        residual_abs = residuals[i] < 0 ? (tflac_u32)-residuals[i] : (tflac_u32)residuals[i];
+        TFLAC_U64_ADD_WORD(residual_err, residual_abs);
     }
 
-    t->residual_errors[2] = residual_err;
+    *residual_error = residual_err;
 }
 
-TFLAC_PRIVATE void tflac_calculate_fixed_residuals_order3(tflac* t) {
-    uint32_t i = 0;
+TFLAC_PRIVATE void tflac_cfr_order3_std(
+      tflac_u32 blocksize,
+      const tflac_s32* TFLAC_RESTRICT _samples,
+      tflac_s32* TFLAC_RESTRICT _residuals,
+      tflac_u64* TFLAC_RESTRICT residual_error) {
+    tflac_u32 i = 0;
 
-    const tflac_int* TFLAC_RESTRICT samples = TFLAC_ASSUME_ALIGNED(t->residuals[0], 16);
-    tflac_int* TFLAC_RESTRICT residuals = TFLAC_ASSUME_ALIGNED(t->residuals[3], 16);
+    const tflac_s32* TFLAC_RESTRICT samples = TFLAC_ASSUME_ALIGNED(_samples, 16);
+    tflac_s32* TFLAC_RESTRICT residuals = TFLAC_ASSUME_ALIGNED(_residuals, 16);
 
-    tflac_uint residual_abs = 0;
-    uint64_t residual_err = 0;
+    tflac_u32 residual_abs = 0;
+    tflac_u64 residual_err;
+    residual_err = TFLAC_U64_ZERO;
 
     residuals[0] = samples[0];
     residuals[1] = samples[1];
     residuals[2] = samples[2];
     residuals[3] = samples[3] - (3 * samples[2]) - (-3 * samples[1]) - samples[0];
 
-    for(i=4;i<t->cur_blocksize;i++) {
+    for(i=4;i<blocksize;i++) {
         residuals[i] = samples[i] - (3 * samples[i-1]) - (-3 * samples[i-2]) - samples[i-3];
-        residual_abs = residuals[i] < 0 ? -(tflac_uint)residuals[i] : (tflac_uint)residuals[i];
-        residual_err += residual_abs;
+        residual_abs = residuals[i] < 0 ? (tflac_u32)-residuals[i] : (tflac_u32)residuals[i];
+        TFLAC_U64_ADD_WORD(residual_err, residual_abs);
     }
 
-    t->residual_errors[3] = residual_err;
+    *residual_error = residual_err;
 }
 
-TFLAC_PRIVATE void tflac_calculate_fixed_residuals_order4(tflac* t) {
-    uint32_t i = 0;
+TFLAC_PRIVATE void tflac_cfr_order4_std(
+      tflac_u32 blocksize,
+      const tflac_s32* TFLAC_RESTRICT _samples,
+      tflac_s32* TFLAC_RESTRICT _residuals,
+      tflac_u64* TFLAC_RESTRICT residual_error) {
+    tflac_u32 i = 0;
 
-    const tflac_int* TFLAC_RESTRICT samples = TFLAC_ASSUME_ALIGNED(t->residuals[0], 16);
-    tflac_int* TFLAC_RESTRICT residuals = TFLAC_ASSUME_ALIGNED(t->residuals[4], 16);
+    const tflac_s32* TFLAC_RESTRICT samples = TFLAC_ASSUME_ALIGNED(_samples, 16);
+    tflac_s32* TFLAC_RESTRICT residuals = TFLAC_ASSUME_ALIGNED(_residuals, 16);
 
-    tflac_uint residual_abs = 0;
-    uint64_t residual_err = 0;
+    tflac_u32 residual_abs = 0;
+    tflac_u64 residual_err;
+    residual_err = TFLAC_U64_ZERO;
 
     residuals[0] = samples[0];
     residuals[1] = samples[1];
     residuals[2] = samples[2];
     residuals[3] = samples[3];
 
-    for(i=4;i<t->cur_blocksize;i++) {
+    for(i=4;i<blocksize;i++) {
         residuals[i] = samples[i] - (4 * samples[i-1]) - (-6 * samples[i-2]) - (4 * samples[i-3]) - (-1 * samples[i-4]);
-        residual_abs = residuals[i] < 0 ? -(tflac_uint)residuals[i] : (tflac_uint)residuals[i];
-        residual_err += residual_abs;
+        residual_abs = residuals[i] < 0 ? (tflac_u32)-residuals[i] : (tflac_u32)residuals[i];
+        TFLAC_U64_ADD_WORD(residual_err, residual_abs);
     }
 
-    t->residual_errors[4] = residual_err;
+    *residual_error = residual_err;
 }
 
-TFLAC_PRIVATE void tflac_calculate_fixed_residuals_order1_64bit(tflac* t) {
-    uint32_t i = 0;
+#ifdef TFLAC_ENABLE_SSE2
 
-    const tflac_int* TFLAC_RESTRICT samples = TFLAC_ASSUME_ALIGNED(t->residuals[0], 16);
-    tflac_int* TFLAC_RESTRICT residuals = TFLAC_ASSUME_ALIGNED(t->residuals[1], 16);
-    int64_t sample0;
-    int64_t sample1;
+#ifdef TFLAC_32BIT_ONLY
+#define TFLAC_SSE2_ADD(d,m) \
+    do { \
+        tflac_u32 u32val = ((tflac_u32)_mm_cvtsi128_si32(m)); \
+        d.hi += (d.lo += u32val) < u32val; \
+        d.hi += ((tflac_u32)_mm_cvtsi128_si32(_mm_shuffle_epi32(m,0x55))); \
+        u32val = ((tflac_u32)_mm_cvtsi128_si32(_mm_shuffle_epi32(m,0xAA))); \
+        d.hi += (d.lo += u32val) < u32val; \
+        d.hi += ((tflac_u32)_mm_cvtsi128_si32(_mm_shuffle_epi32(m,0xFF))); \
+    } while(0)
+#else
 
-    uint64_t residual_abs = 0;
-    uint64_t residual_err = 0;
+#ifdef TFLAC_X64
+#define TFLAC_SSE2_ADD(d,m) \
+    d += ((tflac_u64)_mm_cvtsi128_si64(m));\
+    d += ((tflac_u64)_mm_cvtsi128_si64(_mm_unpackhi_epi64(m,zero)));
+#else
+#define TFLAC_SSE2_ADD(d,m) \
+    d += ((tflac_u64)_mm_cvtsi128_si32(m)); \
+    d += (((tflac_u64)_mm_cvtsi128_si32(_mm_shuffle_epi32(m,0x55))) << 32); \
+    d += ((tflac_u64)_mm_cvtsi128_si32(_mm_shuffle_epi32(m,0xAA))); \
+    d += (((tflac_u64)_mm_cvtsi128_si32(_mm_shuffle_epi32(m,0xFF))) << 32);
+#endif /* X64 */
+#endif /* 32BIT */
+
+
+TFLAC_PRIVATE void tflac_cfr_order0_sse2(
+      tflac_u32 blocksize,
+      const tflac_s32* TFLAC_RESTRICT _samples,
+      tflac_s32* TFLAC_RESTRICT _residuals,
+      tflac_u64* TFLAC_RESTRICT residual_error) {
+
+    const tflac_s32* TFLAC_RESTRICT samples0 = TFLAC_ASSUME_ALIGNED(_samples, 16);
+    const __m128i zero = _mm_setzero_si128();
+
+    __m128i sum = _mm_setzero_si128();
+    tflac_u64 residual_err;
+    tflac_u32 len = blocksize - 4;
+
+    tflac_u32 residual_abs = 0;
+
+    residual_err = TFLAC_U64_ZERO;
+
+    samples0 += 4;
+
+    while(len >= 4) {
+        __m128i samples = _mm_load_si128((const __m128i *)samples0);
+        __m128i masks   = _mm_srai_epi32(samples,31);
+
+        samples = _mm_xor_si128(samples, masks);
+        samples = _mm_sub_epi32(samples, masks);
+
+        sum = _mm_add_epi64(sum, _mm_unpacklo_epi32(samples, zero));
+        sum = _mm_add_epi64(sum, _mm_unpackhi_epi32(samples, zero));
+
+        samples0 += 4;
+        len -= 4;
+    }
+
+    TFLAC_SSE2_ADD(residual_err,sum);
+
+    while(len--) {
+        residual_abs = (*samples0) < 0 ? (tflac_u32)-(*samples0) : (tflac_u32)(*samples0);
+        TFLAC_U64_ADD_WORD(residual_err,residual_abs);
+        samples0++;
+    }
+
+    *residual_error = residual_err;
+    (void)_residuals;
+}
+
+TFLAC_PRIVATE void tflac_cfr_order1_sse2(
+      tflac_u32 blocksize,
+      const tflac_s32* TFLAC_RESTRICT _samples,
+      tflac_s32* TFLAC_RESTRICT _residuals,
+      tflac_u64* TFLAC_RESTRICT residual_error) {
+    const tflac_s32* TFLAC_RESTRICT samples0 = TFLAC_ASSUME_ALIGNED(_samples, 16);
+    const tflac_s32* TFLAC_RESTRICT samples1 = _samples;
+    const __m128i zero = _mm_setzero_si128();
+
+    tflac_u32 len = blocksize - 4;
+    tflac_s32* TFLAC_RESTRICT residuals = TFLAC_ASSUME_ALIGNED(_residuals, 16);
+
+    tflac_u32 residual_abs = 0;
+    tflac_s32 residual = 0;
+    tflac_u64 residual_err;
+    __m128i sum = _mm_setzero_si128();
+
+    residual_err = TFLAC_U64_ZERO;
+
+    *residuals++ = *samples0++;
+    *residuals++ = *samples0++ - *samples1++;
+    *residuals++ = *samples0++ - *samples1++;
+    *residuals++ = *samples0++ - *samples1++;
+
+    while(len > 4) {
+        __m128i masks;
+        __m128i msamples0 = _mm_load_si128((const __m128i *)samples0);
+        __m128i msamples1 = _mm_loadu_si128((const __m128i *)samples1);
+
+        msamples0 = _mm_sub_epi32(msamples0, msamples1);
+
+        _mm_store_si128( (__m128i*)residuals, msamples0);
+
+        masks = _mm_srai_epi32(msamples0,31);
+
+        msamples0 = _mm_xor_si128(msamples0, masks);
+        msamples0 = _mm_sub_epi32(msamples0, masks);
+
+        sum = _mm_add_epi64(sum, _mm_unpacklo_epi32(msamples0, zero));
+        sum = _mm_add_epi64(sum, _mm_unpackhi_epi32(msamples0, zero));
+
+        residuals += 4;
+        samples0 += 4;
+        samples1 += 4;
+        len -= 4;
+    }
+
+    TFLAC_SSE2_ADD(residual_err,sum);
+
+    while(len--) {
+        residual = *samples0++ - *samples1++;
+        *residuals++ = residual;
+
+        residual_abs = residual < 0 ? (tflac_u32)-residual : (tflac_u32)residual;
+        TFLAC_U64_ADD_WORD(residual_err,residual_abs);
+    }
+
+    *residual_error = residual_err;
+}
+
+TFLAC_PRIVATE void tflac_cfr_order2_sse2(
+      tflac_u32 blocksize,
+      const tflac_s32* TFLAC_RESTRICT _samples,
+      tflac_s32* TFLAC_RESTRICT _residuals,
+      tflac_u64* TFLAC_RESTRICT residual_error) {
+    const tflac_s32* TFLAC_RESTRICT samples0 = TFLAC_ASSUME_ALIGNED(_samples, 16);
+    const tflac_s32* TFLAC_RESTRICT samples1 = _samples;
+    const tflac_s32* TFLAC_RESTRICT samples2 = _samples;
+    const __m128i zero = _mm_setzero_si128();
+
+    tflac_u32 len = blocksize - 4;
+    tflac_s32* TFLAC_RESTRICT residuals = TFLAC_ASSUME_ALIGNED(_residuals, 16);
+
+    tflac_u32 residual_abs = 0;
+    tflac_s32 residual = 0;
+    tflac_u64 residual_err;
+    __m128i sum = _mm_setzero_si128();
+
+    residual_err = TFLAC_U64_ZERO;
+
+    *residuals++ = *samples0++;
+    *residuals++ = *samples0++;
+    samples1++;
+
+    *residuals++ = (*samples0++) - (2 * (*samples1++)) - (-1 * (*samples2++));
+    *residuals++ = (*samples0++) - (2 * (*samples1++)) - (-1 * (*samples2++));
+
+    while(len > 4) {
+        __m128i masks;
+        __m128i msamples0 = _mm_load_si128((const __m128i *)samples0);
+        __m128i msamples1 = _mm_loadu_si128((const __m128i *)samples1);
+        __m128i msamples2 = _mm_loadu_si128((const __m128i *)samples2);
+
+        msamples0 = _mm_sub_epi32(msamples0, msamples1);
+        msamples0 = _mm_sub_epi32(msamples0, msamples1);
+        msamples0 = _mm_add_epi32(msamples0, msamples2);
+
+        _mm_store_si128( (__m128i*)residuals, msamples0);
+
+        masks = _mm_srai_epi32(msamples0,31);
+
+        msamples0 = _mm_xor_si128(msamples0, masks);
+        msamples0 = _mm_sub_epi32(msamples0, masks);
+
+        sum = _mm_add_epi64(sum, _mm_unpacklo_epi32(msamples0, zero));
+        sum = _mm_add_epi64(sum, _mm_unpackhi_epi32(msamples0, zero));
+
+        residuals += 4;
+        samples0 += 4;
+        samples1 += 4;
+        samples2 += 4;
+        len -= 4;
+    }
+
+    TFLAC_SSE2_ADD(residual_err,sum);
+
+    while(len--) {
+        residual = (*samples0++) - (2 * (*samples1++)) - (-1 * (*samples2++));
+
+        residual_abs = residual < 0 ? (tflac_u32)-residual : (tflac_u32)residual;
+        TFLAC_U64_ADD_WORD(residual_err,residual_abs);
+
+        *residuals++ = residual;
+    }
+
+    *residual_error = residual_err;
+}
+
+TFLAC_PRIVATE void tflac_cfr_order3_sse2(
+      tflac_u32 blocksize,
+      const tflac_s32* TFLAC_RESTRICT _samples,
+      tflac_s32* TFLAC_RESTRICT _residuals,
+      tflac_u64* TFLAC_RESTRICT residual_error) {
+    const tflac_s32* TFLAC_RESTRICT samples0 = TFLAC_ASSUME_ALIGNED(_samples, 16);
+    const tflac_s32* TFLAC_RESTRICT samples1 = _samples;
+    const tflac_s32* TFLAC_RESTRICT samples2 = _samples;
+    const tflac_s32* TFLAC_RESTRICT samples3 = _samples;
+    const __m128i zero = _mm_setzero_si128();
+
+    tflac_u32 len = blocksize - 4;
+    tflac_s32* TFLAC_RESTRICT residuals = TFLAC_ASSUME_ALIGNED(_residuals, 16);
+
+    tflac_u32 residual_abs = 0;
+    tflac_s32 residual = 0;
+    tflac_u64 residual_err;
+    __m128i sum = _mm_setzero_si128();
+
+    residual_err = TFLAC_U64_ZERO;
+
+    *residuals++ = *samples0++;
+    *residuals++ = *samples0++;
+    *residuals++ = *samples0++;
+
+    samples1++; samples1++;
+    samples2++;
+
+    *residuals++ = *samples0++ - (3 * (*samples1++)) - (-3 * (*samples2++)) - *samples3++;
+
+    while(len > 4) {
+        __m128i masks;
+        __m128i msamples0 = _mm_load_si128((const __m128i *)samples0);
+        __m128i msamples1 = _mm_loadu_si128((const __m128i *)samples1);
+        __m128i msamples2 = _mm_loadu_si128((const __m128i *)samples2);
+        __m128i msamples3 = _mm_loadu_si128((const __m128i *)samples3);
+
+        msamples0 = _mm_sub_epi32(msamples0, msamples1);
+        msamples0 = _mm_sub_epi32(msamples0, msamples1);
+        msamples0 = _mm_sub_epi32(msamples0, msamples1);
+
+        msamples0 = _mm_add_epi32(msamples0, msamples2);
+        msamples0 = _mm_add_epi32(msamples0, msamples2);
+        msamples0 = _mm_add_epi32(msamples0, msamples2);
+
+        msamples0 = _mm_sub_epi32(msamples0, msamples3);
+
+        _mm_store_si128( (__m128i*)residuals, msamples0);
+
+        masks = _mm_srai_epi32(msamples0,31);
+
+        msamples0 = _mm_xor_si128(msamples0, masks);
+        msamples0 = _mm_sub_epi32(msamples0, masks);
+
+        sum = _mm_add_epi64(sum, _mm_unpacklo_epi32(msamples0, zero));
+        sum = _mm_add_epi64(sum, _mm_unpackhi_epi32(msamples0, zero));
+
+        residuals += 4;
+        samples0 += 4;
+        samples1 += 4;
+        samples2 += 4;
+        samples3 += 4;
+        len -= 4;
+    }
+
+    TFLAC_SSE2_ADD(residual_err,sum);
+
+    while(len--) {
+        residual = *samples0++ - (3 * (*samples1++)) - (-3 * (*samples2++)) - *samples3++;
+
+        residual_abs = residual < 0 ? (tflac_u32)-residual : (tflac_u32)residual;
+        TFLAC_U64_ADD_WORD(residual_err,residual_abs);
+
+        *residuals++ = residual;
+    }
+
+    *residual_error = residual_err;
+}
+
+TFLAC_PRIVATE void tflac_cfr_order4_sse2(
+      tflac_u32 blocksize,
+      const tflac_s32* TFLAC_RESTRICT _samples,
+      tflac_s32* TFLAC_RESTRICT _residuals,
+      tflac_u64* TFLAC_RESTRICT residual_error) {
+    const tflac_s32* TFLAC_RESTRICT samples0 = TFLAC_ASSUME_ALIGNED(_samples, 16);
+    const tflac_s32* TFLAC_RESTRICT samples1 = _samples;
+    const tflac_s32* TFLAC_RESTRICT samples2 = _samples;
+    const tflac_s32* TFLAC_RESTRICT samples3 = _samples;
+    const tflac_s32* TFLAC_RESTRICT samples4 = TFLAC_ASSUME_ALIGNED(_samples, 16);
+    const __m128i zero = _mm_setzero_si128();
+
+    tflac_u32 len = blocksize - 4;
+    tflac_s32* TFLAC_RESTRICT residuals = TFLAC_ASSUME_ALIGNED(_residuals, 16);
+
+    tflac_u32 residual_abs = 0;
+    tflac_s32 residual = 0;
+    tflac_u64 residual_err;
+    __m128i sum = _mm_setzero_si128();
+
+    residual_err = TFLAC_U64_ZERO;
+
+    *residuals++ = *samples0++;
+    *residuals++ = *samples0++;
+    *residuals++ = *samples0++;
+    *residuals++ = *samples0++;
+
+    samples1++; samples1++; samples1++;
+    samples2++; samples2++;
+    samples3++;
+
+    while(len > 4) {
+        __m128i masks;
+        __m128i msamples0 = _mm_load_si128((const __m128i *)samples0);
+        __m128i msamples1 = _mm_loadu_si128((const __m128i *)samples1);
+        __m128i msamples2 = _mm_loadu_si128((const __m128i *)samples2);
+        __m128i msamples3 = _mm_loadu_si128((const __m128i *)samples3);
+        __m128i msamples4 = _mm_load_si128((const __m128i *)samples4);
+
+        msamples0 = _mm_sub_epi32(msamples0, msamples1);
+        msamples0 = _mm_sub_epi32(msamples0, msamples1);
+        msamples0 = _mm_sub_epi32(msamples0, msamples1);
+        msamples0 = _mm_sub_epi32(msamples0, msamples1);
+
+        msamples0 = _mm_add_epi32(msamples0, msamples2);
+        msamples0 = _mm_add_epi32(msamples0, msamples2);
+        msamples0 = _mm_add_epi32(msamples0, msamples2);
+        msamples0 = _mm_add_epi32(msamples0, msamples2);
+        msamples0 = _mm_add_epi32(msamples0, msamples2);
+        msamples0 = _mm_add_epi32(msamples0, msamples2);
+
+        msamples0 = _mm_sub_epi32(msamples0, msamples3);
+        msamples0 = _mm_sub_epi32(msamples0, msamples3);
+        msamples0 = _mm_sub_epi32(msamples0, msamples3);
+        msamples0 = _mm_sub_epi32(msamples0, msamples3);
+
+        msamples0 = _mm_add_epi32(msamples0, msamples4);
+
+        _mm_store_si128( (__m128i*)residuals, msamples0);
+
+        masks = _mm_srai_epi32(msamples0,31);
+
+        msamples0 = _mm_xor_si128(msamples0, masks);
+        msamples0 = _mm_sub_epi32(msamples0, masks);
+
+        sum = _mm_add_epi64(sum, _mm_unpacklo_epi32(msamples0, zero));
+        sum = _mm_add_epi64(sum, _mm_unpackhi_epi32(msamples0, zero));
+
+        residuals += 4;
+        samples0 += 4;
+        samples1 += 4;
+        samples2 += 4;
+        samples3 += 4;
+        samples4 += 4;
+        len -= 4;
+    }
+
+    TFLAC_SSE2_ADD(residual_err,sum);
+
+    while(len--) {
+        residual = *samples0++ - (4 * (*samples1++)) - (-6 * (*samples2++)) - (4 * (*samples3++)) - (-1 * (*samples4++));
+
+        residual_abs = residual < 0 ? (tflac_u32)-residual : (tflac_u32)residual;
+        TFLAC_U64_ADD_WORD(residual_err,residual_abs);
+
+        *residuals++ = residual;
+    }
+
+    *residual_error = residual_err;
+}
+#endif /* TFLAC_ENABLE_SSE2 */
+
+TFLAC_PRIVATE void tflac_cfr_order0_64bit(
+      tflac_u32 blocksize,
+      const tflac_s32* TFLAC_RESTRICT _samples,
+      tflac_s32* TFLAC_RESTRICT _residuals,
+      tflac_u64* TFLAC_RESTRICT residual_error) {
+
+    tflac_u32 i = 0;
+    const tflac_s32* TFLAC_RESTRICT samples = TFLAC_ASSUME_ALIGNED(_samples, 16);
+    tflac_u32 residual_abs = 0;
+    tflac_u64 residual_err;
+
+    residual_err = TFLAC_U64_ZERO;
+
+    for(i=0;i<4;i++) {
+        residual_abs = samples[i] < 0 ? (tflac_u32)-samples[i] : (tflac_u32)samples[i];
+        if(residual_abs > INT32_MAX) {
+            *residual_error = TFLAC_U64_MAX;
+            return;
+        }
+    }
+
+    for(i=4;i<blocksize;i++) {
+        residual_abs = samples[i] < 0 ? (tflac_u32)-samples[i] : (tflac_u32)samples[i];
+        if(residual_abs > INT32_MAX) {
+            *residual_error = TFLAC_U64_MAX;
+            return;
+        }
+        TFLAC_U64_ADD_WORD(residual_err,residual_abs);
+    }
+
+    *residual_error = residual_err;
+    (void)_residuals;
+}
+
+TFLAC_PRIVATE void tflac_cfr_order1_64bit(
+      tflac_u32 blocksize,
+      const tflac_s32* TFLAC_RESTRICT _samples,
+      tflac_s32* TFLAC_RESTRICT _residuals,
+      tflac_u64* TFLAC_RESTRICT residual_error) {
+
+    tflac_u32 i = 0;
+    const tflac_s32* TFLAC_RESTRICT samples = TFLAC_ASSUME_ALIGNED(_samples, 16);
+    tflac_s32* TFLAC_RESTRICT residuals = TFLAC_ASSUME_ALIGNED(_residuals, 16);
+
+    tflac_s64 sample0;
+    tflac_s64 sample1;
+
+    tflac_u64 residual_abs;
+    tflac_u64 residual_err;
+
+    residual_abs = TFLAC_U64_ZERO;
+    residual_err = TFLAC_U64_ZERO;
 
     residuals[0] = samples[0];
 
     for(i=1;i<4;i++) {
-        sample0 = (int64_t)samples[i];
-        sample1 = (int64_t)samples[i-1];
-        sample0 = sample0 - (1 *sample1);
-        residual_abs = sample0 < 0 ? -(uint64_t)sample0 : (uint64_t)sample0;
-        if(residual_abs > 0x80000000ULL) {
-            t->residual_errors[1] = UINT64_MAX;
+        TFLAC_S64_CAST(sample0,samples[i]);
+        TFLAC_S64_CAST(sample1,samples[i-1]);
+
+        TFLAC_S64_SUB(sample0,sample1);
+
+        TFLAC_S64_ABS(residual_abs,sample0);
+
+        if(TFLAC_U64_GT_WORD(residual_abs,INT32_MAX)) {
+            *residual_error = TFLAC_U64_MAX;
             return;
         }
-        residuals[i] = (tflac_int)sample0;
+
+        TFLAC_S64_CAST32(residuals[i], sample0);
+
     }
 
-    for(i=4;i<t->cur_blocksize;i++) {
-        sample0 = (int64_t)samples[i];
-        sample1 = (int64_t)samples[i-1];
-        sample0 = sample0 - (1 * sample1);
-        residual_abs = sample0 < 0 ? -(uint64_t)sample0 : (uint64_t)sample0;
-        if(residual_abs > 0x80000000ULL) {
-            t->residual_errors[1] = UINT64_MAX;
+    for(i=4;i<blocksize;i++) {
+        TFLAC_S64_CAST(sample0,samples[i]);
+        TFLAC_S64_CAST(sample1,samples[i-1]);
+
+        TFLAC_S64_SUB(sample0,sample1);
+
+        TFLAC_S64_ABS(residual_abs,sample0);
+        if(TFLAC_U64_GT_WORD(residual_abs,INT32_MAX)) {
+            *residual_error = TFLAC_U64_MAX;
             return;
         }
-        residuals[i] = (tflac_int)sample0;
-        residual_err += residual_abs;
+        TFLAC_S64_CAST32(residuals[i], sample0);
+        TFLAC_U64_ADD(residual_err,residual_abs);
     }
 
-    t->residual_errors[1] = residual_err;
+    *residual_error = residual_err;
 }
 
-TFLAC_PRIVATE void tflac_calculate_fixed_residuals_order2_64bit(tflac* t) {
-    uint32_t i = 0;
+TFLAC_PRIVATE void tflac_cfr_order2_64bit(
+      tflac_u32 blocksize,
+      const tflac_s32* TFLAC_RESTRICT _samples,
+      tflac_s32* TFLAC_RESTRICT _residuals,
+      tflac_u64* TFLAC_RESTRICT residual_error) {
 
-    const tflac_int* TFLAC_RESTRICT samples = TFLAC_ASSUME_ALIGNED(t->residuals[0], 16);
-    tflac_int* TFLAC_RESTRICT residuals = TFLAC_ASSUME_ALIGNED(t->residuals[2], 16);
-    int64_t sample0;
-    int64_t sample1;
-    int64_t sample2;
+    tflac_u32 i = 0;
+    const tflac_s32* TFLAC_RESTRICT samples = TFLAC_ASSUME_ALIGNED(_samples, 16);
+    tflac_s32* TFLAC_RESTRICT residuals = TFLAC_ASSUME_ALIGNED(_residuals, 16);
 
-    uint64_t residual_abs = 0;
-    uint64_t residual_err = 0;
+    tflac_s64 sample0;
+    tflac_s64 sample1;
+    tflac_s64 sample2;
+
+    tflac_u64 residual_abs;
+    tflac_u64 residual_err;
 
     residuals[0] = samples[0];
     residuals[1] = samples[1];
+
+    residual_abs = TFLAC_U64_ZERO;
+    residual_err = TFLAC_U64_ZERO;
 
     for(i=2;i<4;i++) {
-        sample0 = (int64_t)samples[i];
-        sample1 = (int64_t)samples[i-1];
-        sample2 = (int64_t)samples[i-2];
-        sample0 = sample0 - (2 * sample1) - (-1 * sample2);
-        residual_abs = sample0 < 0 ? -(uint64_t)sample0 : (uint64_t)sample0;
-        if(residual_abs > 0x80000000ULL) {
-            t->residual_errors[2] = UINT64_MAX;
+        TFLAC_S64_CAST(sample0,samples[i]);
+        TFLAC_S64_CAST(sample1,samples[i-1]);
+        TFLAC_S64_CAST(sample2,samples[i-2]);
+
+        TFLAC_S64_SUB(sample0,sample1);
+        TFLAC_S64_SUB(sample0,sample1);
+        TFLAC_S64_ADD(sample0,sample2);
+
+        TFLAC_S64_ABS(residual_abs,sample0);
+        if(TFLAC_U64_GT_WORD(residual_abs,INT32_MAX)) {
+            *residual_error = TFLAC_U64_MAX;
             return;
         }
-        residuals[i] = (tflac_int)sample0;
+        TFLAC_S64_CAST32(residuals[i], sample0);
     }
 
-    for(i=4;i<t->cur_blocksize;i++) {
-        sample0 = (int64_t)samples[i];
-        sample1 = (int64_t)samples[i-1];
-        sample2 = (int64_t)samples[i-2];
-        sample0 = sample0 - (2 * sample1) - (-1 * sample2);
-        residual_abs = sample0 < 0 ? -(uint64_t)sample0 : (uint64_t)sample0;
-        if(residual_abs > 0x80000000ULL) {
-            t->residual_errors[2] = UINT64_MAX;
+    for(i=4;i<blocksize;i++) {
+        TFLAC_S64_CAST(sample0,samples[i]);
+        TFLAC_S64_CAST(sample1,samples[i-1]);
+        TFLAC_S64_CAST(sample2,samples[i-2]);
+
+        TFLAC_S64_SUB(sample0,sample1);
+        TFLAC_S64_SUB(sample0,sample1);
+        TFLAC_S64_ADD(sample0,sample2);
+
+        TFLAC_S64_ABS(residual_abs,sample0);
+        if(TFLAC_U64_GT_WORD(residual_abs,INT32_MAX)) {
+            *residual_error = TFLAC_U64_MAX;
             return;
         }
-        residuals[i] = (tflac_int)sample0;
-        residual_err += residual_abs;
+        TFLAC_S64_CAST32(residuals[i], sample0);
+        TFLAC_U64_ADD(residual_err,residual_abs);
     }
 
-    t->residual_errors[2] = residual_err;
+    *residual_error = residual_err;
 }
 
-TFLAC_PRIVATE void tflac_calculate_fixed_residuals_order3_64bit(tflac* t) {
-    uint32_t i = 0;
+TFLAC_PRIVATE void tflac_cfr_order3_64bit(
+      tflac_u32 blocksize,
+      const tflac_s32* TFLAC_RESTRICT _samples,
+      tflac_s32* TFLAC_RESTRICT _residuals,
+      tflac_u64* TFLAC_RESTRICT residual_error) {
 
-    const tflac_int* TFLAC_RESTRICT samples = TFLAC_ASSUME_ALIGNED(t->residuals[0], 16);
-    tflac_int* TFLAC_RESTRICT residuals = TFLAC_ASSUME_ALIGNED(t->residuals[3], 16);
-    int64_t sample0;
-    int64_t sample1;
-    int64_t sample2;
-    int64_t sample3;
+    tflac_u32 i = 0;
+    const tflac_s32* TFLAC_RESTRICT samples = TFLAC_ASSUME_ALIGNED(_samples, 16);
+    tflac_s32* TFLAC_RESTRICT residuals = TFLAC_ASSUME_ALIGNED(_residuals, 16);
 
-    uint64_t residual_abs = 0;
-    uint64_t residual_err = 0;
+    tflac_s64 sample0;
+    tflac_s64 sample1;
+    tflac_s64 sample2;
+    tflac_s64 sample3;
+
+    tflac_u64 residual_abs;
+    tflac_u64 residual_err;
 
     residuals[0] = samples[0];
     residuals[1] = samples[1];
     residuals[2] = samples[2];
-    residuals[3] = samples[3];
+
+    residual_abs = TFLAC_U64_ZERO;
+    residual_err = TFLAC_U64_ZERO;
 
     for(i=3;i<4;i++) {
-        sample0 = (int64_t)samples[i];
-        sample1 = (int64_t)samples[i-1];
-        sample2 = (int64_t)samples[i-2];
-        sample3 = (int64_t)samples[i-3];
-        sample0 = sample0 - (3 * sample1) - (-3 * sample2) - (1 * sample3);
-        residual_abs = sample0 < 0 ? -(uint64_t)sample0 : (uint64_t)sample0;
-        if(residual_abs > 0x80000000ULL) {
-            t->residual_errors[3] = UINT64_MAX;
+        TFLAC_S64_CAST(sample0,samples[i]);
+        TFLAC_S64_CAST(sample1,samples[i-1]);
+        TFLAC_S64_CAST(sample2,samples[i-2]);
+        TFLAC_S64_CAST(sample3,samples[i-3]);
+
+        TFLAC_S64_SUB(sample0,sample1);
+        TFLAC_S64_SUB(sample0,sample1);
+        TFLAC_S64_SUB(sample0,sample1);
+        TFLAC_S64_ADD(sample0,sample2);
+        TFLAC_S64_ADD(sample0,sample2);
+        TFLAC_S64_ADD(sample0,sample2);
+        TFLAC_S64_SUB(sample0,sample3);
+
+        TFLAC_S64_ABS(residual_abs,sample0);
+        if(TFLAC_U64_GT_WORD(residual_abs,INT32_MAX)) {
+            *residual_error = TFLAC_U64_MAX;
             return;
         }
-        residuals[i] = (tflac_int)sample0;
+
+        TFLAC_S64_CAST32(residuals[i], sample0);
     }
 
-    for(i=4;i<t->cur_blocksize;i++) {
-        sample0 = (int64_t)samples[i];
-        sample1 = (int64_t)samples[i-1];
-        sample2 = (int64_t)samples[i-2];
-        sample3 = (int64_t)samples[i-3];
-        sample0 = sample0 - (3 * sample1) - (-3 * sample2) - (1 * sample3);
-        residual_abs = sample0 < 0 ? -(uint64_t)sample0 : (uint64_t)sample0;
-        if(residual_abs > 0x80000000ULL) {
-            t->residual_errors[3] = UINT64_MAX;
+    for(i=4;i<blocksize;i++) {
+        TFLAC_S64_CAST(sample0,samples[i]);
+        TFLAC_S64_CAST(sample1,samples[i-1]);
+        TFLAC_S64_CAST(sample2,samples[i-2]);
+        TFLAC_S64_CAST(sample3,samples[i-3]);
+
+        TFLAC_S64_SUB(sample0,sample1);
+        TFLAC_S64_SUB(sample0,sample1);
+        TFLAC_S64_SUB(sample0,sample1);
+        TFLAC_S64_ADD(sample0,sample2);
+        TFLAC_S64_ADD(sample0,sample2);
+        TFLAC_S64_ADD(sample0,sample2);
+        TFLAC_S64_SUB(sample0,sample3);
+
+        TFLAC_S64_ABS(residual_abs,sample0);
+        if(TFLAC_U64_GT_WORD(residual_abs,INT32_MAX)) {
+            *residual_error = TFLAC_U64_MAX;
             return;
         }
-        residuals[i] = (tflac_int)sample0;
-        residual_err += residual_abs;
+
+        TFLAC_S64_CAST32(residuals[i], sample0);
+        TFLAC_U64_ADD(residual_err,residual_abs);
     }
 
-    t->residual_errors[3] = residual_err;
+    *residual_error = residual_err;
 }
 
-TFLAC_PRIVATE void tflac_calculate_fixed_residuals_order4_64bit(tflac* t) {
-    uint32_t i = 0;
+TFLAC_PRIVATE void tflac_cfr_order4_64bit(
+      tflac_u32 blocksize,
+      const tflac_s32* TFLAC_RESTRICT _samples,
+      tflac_s32* TFLAC_RESTRICT _residuals,
+      tflac_u64* TFLAC_RESTRICT residual_error) {
 
-    const tflac_int* TFLAC_RESTRICT samples = TFLAC_ASSUME_ALIGNED(t->residuals[0], 16);
-    tflac_int* TFLAC_RESTRICT residuals = TFLAC_ASSUME_ALIGNED(t->residuals[4], 16);
-    int64_t sample0;
-    int64_t sample1;
-    int64_t sample2;
-    int64_t sample3;
-    int64_t sample4;
+    tflac_u32 i = 0;
+    const tflac_s32* TFLAC_RESTRICT samples = TFLAC_ASSUME_ALIGNED(_samples, 16);
+    tflac_s32* TFLAC_RESTRICT residuals = TFLAC_ASSUME_ALIGNED(_residuals, 16);
 
-    uint64_t residual_abs = 0;
-    uint64_t residual_err = 0;
+    tflac_s64 sample0;
+    tflac_s64 sample1;
+    tflac_s64 sample2;
+    tflac_s64 sample3;
+    tflac_s64 sample4;
+
+    tflac_u64 residual_abs;
+    tflac_u64 residual_err;
+
+    residual_abs = TFLAC_U64_ZERO;
+    residual_err = TFLAC_U64_ZERO;
 
     residuals[0] = samples[0];
     residuals[1] = samples[1];
     residuals[2] = samples[2];
     residuals[3] = samples[3];
 
-    for(i=4;i<t->cur_blocksize;i++) {
-        sample0 = (int64_t)samples[i];
-        sample1 = (int64_t)samples[i-1];
-        sample2 = (int64_t)samples[i-2];
-        sample3 = (int64_t)samples[i-3];
-        sample4 = (int64_t)samples[i-4];
-        sample0 = sample0 - (4 * sample1) - (-6 * sample2) - (4 * sample3) - (-1 * sample4);
-        residual_abs = sample0 < 0 ? -(uint64_t)sample0 : (uint64_t)sample0;
-        if(residual_abs > 0x80000000ULL) {
-            t->residual_errors[4] = UINT64_MAX;
+    for(i=4;i<blocksize;i++) {
+        TFLAC_S64_CAST(sample0,samples[i]);
+        TFLAC_S64_CAST(sample1,samples[i-1]);
+        TFLAC_S64_CAST(sample2,samples[i-2]);
+        TFLAC_S64_CAST(sample3,samples[i-3]);
+        TFLAC_S64_CAST(sample4,samples[i-4]);
+
+        TFLAC_S64_SUB(sample0,sample1);
+        TFLAC_S64_SUB(sample0,sample1);
+        TFLAC_S64_SUB(sample0,sample1);
+        TFLAC_S64_SUB(sample0,sample1);
+
+        TFLAC_S64_ADD(sample0,sample2);
+        TFLAC_S64_ADD(sample0,sample2);
+        TFLAC_S64_ADD(sample0,sample2);
+        TFLAC_S64_ADD(sample0,sample2);
+        TFLAC_S64_ADD(sample0,sample2);
+        TFLAC_S64_ADD(sample0,sample2);
+
+        TFLAC_S64_SUB(sample0,sample3);
+        TFLAC_S64_SUB(sample0,sample3);
+        TFLAC_S64_SUB(sample0,sample3);
+        TFLAC_S64_SUB(sample0,sample3);
+
+        TFLAC_S64_ADD(sample0,sample4);
+
+        TFLAC_S64_ABS(residual_abs,sample0);
+        if(TFLAC_U64_GT_WORD(residual_abs,INT32_MAX)) {
+            *residual_error = TFLAC_U64_MAX;
             return;
         }
-        residuals[i] = (tflac_int)sample0;
-        residual_err += residual_abs;
+
+        TFLAC_S64_CAST32(residuals[i], sample0);
+        TFLAC_U64_ADD(residual_err,residual_abs);
     }
 
-    t->residual_errors[4] = residual_err;
+    *residual_error = residual_err;
 }
 
-TFLAC_PRIVATE void tflac_calculate_fixed_residuals(tflac *t) {
-    t->residual_errors[1] = 0;
-    t->residual_errors[2] = 0;
-    t->residual_errors[3] = 0;
-    t->residual_errors[4] = 0;
+TFLAC_PRIVATE void tflac_cfr(tflac *t) {
+
+    t->residual_errors[1] = TFLAC_U64_ZERO;
+    t->residual_errors[2] = TFLAC_U64_ZERO;
+    t->residual_errors[3] = TFLAC_U64_ZERO;
+    t->residual_errors[4] = TFLAC_U64_ZERO;
 
     if(TFLAC_UNLIKELY(t->cur_blocksize < 5)) {
-        /* we won't be calculating any residuals so let's bail */
-        t->residual_errors[1] = UINT64_MAX;
-        t->residual_errors[2] = UINT64_MAX;
-        t->residual_errors[3] = UINT64_MAX;
-        t->residual_errors[4] = UINT64_MAX;
+        /* either the block is short or the samples contain INT32_MIN so we'll just bail */
+        t->residual_errors[1] = TFLAC_U64_MAX;
+        t->residual_errors[2] = TFLAC_U64_MAX;
+        t->residual_errors[3] = TFLAC_U64_MAX;
+        t->residual_errors[4] = TFLAC_U64_MAX;
         return;
     }
 
-    t->calculate_order[0](t);
-    t->calculate_order[1](t);
-    t->calculate_order[2](t);
-    t->calculate_order[3](t);
-    t->calculate_order[4](t);
+    t->calculate_order[0](t->cur_blocksize,t->residuals[0],NULL           ,&t->residual_errors[0]);
+    t->calculate_order[1](t->cur_blocksize,t->residuals[0],t->residuals[1],&t->residual_errors[1]);
+    t->calculate_order[2](t->cur_blocksize,t->residuals[0],t->residuals[2],&t->residual_errors[2]);
+    t->calculate_order[3](t->cur_blocksize,t->residuals[0],t->residuals[3],&t->residual_errors[3]);
+    t->calculate_order[4](t->cur_blocksize,t->residuals[0],t->residuals[4],&t->residual_errors[4]);
 
     return;
 }
 
 
 TFLAC_PRIVATE
-int tflac_encode_residuals(tflac* t, uint8_t predictor_order, uint8_t partition_order) {
+int tflac_encode_residuals(tflac* t, tflac_u8 predictor_order, tflac_u8 partition_order) {
     int r;
-    uint32_t rice = 0;
-    uint32_t i = 0;
-    uint32_t j = 0;
+    tflac_u32 rice = 0;
+    tflac_u32 i = 0;
+    tflac_u32 j = 0;
 
-    tflac_uint res_abs = 0;
-    uint64_t v = 0;
-    uint64_t sum = 0;
+    tflac_u32 res_abs = 0;
+    tflac_u32 v = 0;
+    tflac_u64 sum;
 
-    uint8_t w = (uint8_t)t->wasted_bits;
-    uint32_t partition_length = 0;
-    uint32_t offset = predictor_order;
-    uint32_t msb = 0;
-    uint32_t lsb = 0;
-    uint32_t s = t->bw.pos;
-    const tflac_int* residuals = TFLAC_ASSUME_ALIGNED(t->residuals[predictor_order], 16);
+    tflac_u8 w = (tflac_u8)t->wasted_bits;
+    tflac_u32 partition_length = 0;
+    tflac_u32 offset = predictor_order;
+    tflac_u32 msb = 0;
+    tflac_u32 lsb = 0;
+    tflac_u32 s = t->bw.pos;
+    const tflac_s32* residuals = TFLAC_ASSUME_ALIGNED(t->residuals[predictor_order], 16);
 
+    sum = TFLAC_U64_ZERO;
 
-    if( (r = tflac_bitwriter_add(&t->bw, 8, (uint64_t)(0x10 | (predictor_order << 1) | (!!w))) ) != 0) return r;
+    if( (r = tflac_bitwriter_add(&t->bw, 8, (tflac_uint)(0x10 | (predictor_order << 1) | (!!w))) ) != 0) return r;
     if(w) if( (r = tflac_bitwriter_add(&t->bw, w, 1)) != 0) return r;
 
 
     for(i=0;i<predictor_order;i++) {
-        if( (r = tflac_bitwriter_add(&t->bw, t->bitdepth - t->wasted_bits, (tflac_uint)residuals[i])) != 0) return r;
+        if( (r = tflac_bitwriter_add(&t->bw, t->bitdepth - t->wasted_bits, (tflac_u32)residuals[i])) != 0) return r;
     }
 
     if( (r = tflac_bitwriter_add(&t->bw, 6,
         ( (t->max_rice_value > 14 ? 0x10 : 0x00) ) | partition_order)) != 0) return r;
 
-    for(i=0;i < (1ULL << partition_order) ; i++) {
+    for(i=0;i < ( 1U << partition_order) ; i++) {
 
         partition_length = t->cur_blocksize >> partition_order;
-        if(i == 0) partition_length -= (uint32_t)predictor_order;
+        if(i == 0) partition_length -= (tflac_u32)predictor_order;
 
-        sum = 0;
+        sum = TFLAC_U64_ZERO;
         for(j=0;j<partition_length;j++) {
-            res_abs = residuals[j+offset] < 0 ? -(tflac_uint)residuals[j+offset] : (tflac_uint)residuals[j+offset];
-            sum += res_abs;
+            res_abs = residuals[j+offset] < 0 ? (tflac_u32)-residuals[j+offset] : (tflac_u32)residuals[j+offset];
+            TFLAC_U64_ADD_WORD(sum, res_abs);
         }
 
         /* find the rice parameter for this partition */
         rice = 0;
-        while( (partition_length << rice) < sum ) {
+        while( TFLAC_U64_GT_WORD(sum, (partition_length << rice)) ) {
             if(rice == t->max_rice_value) break;
             rice++;
         }
@@ -1619,10 +2549,10 @@ int tflac_encode_residuals(tflac* t, uint8_t predictor_order, uint8_t partition_
 
         for(j=0;j<partition_length;j++) {
             v = residuals[j+offset] < 0 ?
-                (((tflac_uint) -residuals[j+offset] - 1) << 1) + 1:
-                ((tflac_uint)residuals[j+offset]) << 1;
-            msb = (uint32_t)(v >> rice);
-            lsb = (uint32_t)(v - (msb << rice));
+                (((tflac_u32) -residuals[j+offset] - 1) << 1) + 1:
+                ((tflac_u32)residuals[j+offset]) << 1;
+            msb = (tflac_u32)(v >> rice);
+            lsb = (tflac_u32)(v - (msb << rice));
 
             if(msb) if( (r = tflac_bitwriter_zeroes(&t->bw, msb)) != 0) return r;
             if( (r = tflac_bitwriter_add(&t->bw, rice + 1, (1 << rice) | lsb)) != 0) return r;
@@ -1645,16 +2575,20 @@ int tflac_encode_residuals(tflac* t, uint8_t predictor_order, uint8_t partition_
 
 TFLAC_PRIVATE
 int tflac_encode_subframe_fixed(tflac* t) {
-    uint8_t i = 0;
-    uint8_t order = 5;
-    uint8_t max_order = 4;
-    uint64_t error = UINT64_MAX;
-    uint8_t partition_order = t->partition_order;
+    tflac_u8 i = 0;
+    tflac_u8 order = 5;
+    tflac_u8 max_order = 4;
+    tflac_u64 error;
+    tflac_u8 partition_order = t->partition_order;
+
+    error = TFLAC_U64_MAX;
+
+    tflac_cfr(t);
 
     while( t->cur_blocksize >> t->partition_order <= max_order ) max_order--;
 
     for(i=0;i<=max_order;i++) {
-        if(t->residual_errors[i] < error) {
+        if(TFLAC_U64_LT(t->residual_errors[i],error)) {
             error = t->residual_errors[i];
             order = i;
         }
@@ -1666,7 +2600,7 @@ int tflac_encode_subframe_fixed(tflac* t) {
 }
 
 TFLAC_PRIVATE
-int tflac_encode_subframe(tflac *t, uint8_t channel) {
+int tflac_encode_subframe(tflac *t, tflac_u8 channel) {
     int r;
     tflac_bitwriter bw = t->bw;
 
@@ -1677,19 +2611,17 @@ int tflac_encode_subframe(tflac *t, uint8_t channel) {
     if(t->enable_constant_subframe && t->constant) {
         if(tflac_encode_subframe_constant(t) == 0) {
 #ifndef TFLAC_DISABLE_COUNTERS
-            t->subframe_type_counts[channel][TFLAC_SUBFRAME_CONSTANT]++;
+            TFLAC_U64_ADD_WORD(t->subframe_type_counts[channel][TFLAC_SUBFRAME_CONSTANT],1);
 #endif
             return 0;
         }
         t->bw = bw;
     }
 
-    tflac_calculate_fixed_residuals(t);
-
     if(t->enable_fixed_subframe) {
         if(tflac_encode_subframe_fixed(t) == 0) {
 #ifndef TFLAC_DISABLE_COUNTERS
-            t->subframe_type_counts[channel][TFLAC_SUBFRAME_FIXED]++;
+            TFLAC_U64_ADD_WORD(t->subframe_type_counts[channel][TFLAC_SUBFRAME_FIXED],1);
 #endif
             return 0;
         }
@@ -1699,7 +2631,7 @@ int tflac_encode_subframe(tflac *t, uint8_t channel) {
     r = tflac_encode_subframe_verbatim(t);
 #ifndef TFLAC_DISABLE_COUNTERS
     if(r == 0) {
-        t->subframe_type_counts[channel][TFLAC_SUBFRAME_VERBATIM]++;
+        TFLAC_U64_ADD_WORD(t->subframe_type_counts[channel][TFLAC_SUBFRAME_VERBATIM],1);
     }
 #endif
     return r;
@@ -1708,31 +2640,36 @@ int tflac_encode_subframe(tflac *t, uint8_t channel) {
 TFLAC_PRIVATE
 int tflac_encode_frame_header(tflac *t) {
     int r;
-    uint8_t frameno_bytes[6];
+    tflac_u8 frameno_bytes[6];
     unsigned int i = 0;
-    uint8_t frameno_len = 0;
+    tflac_u8 frameno_len = 0;
 
+#ifdef TFLAC_32BIT_ONLY
+    if( (r = tflac_bitwriter_add(&t->bw, 16, t->frame_header >> 16)) != 0) return r;
+    if( (r = tflac_bitwriter_add(&t->bw, 16, t->frame_header)) != 0) return r;
+#else
     if( (r = tflac_bitwriter_add(&t->bw, 32, t->frame_header)) != 0) return r;
+#endif
 
-    if(t->frameno < ( (uint32_t)1 << 7) ) {
+    if(t->frameno < ( (tflac_u32)1 << 7) ) {
         frameno_bytes[0] = t->frameno & 0x7F;
         frameno_len = 1;
-    } else if(t->frameno < ((uint32_t)1 << 11)) {
+    } else if(t->frameno < ((tflac_u32)1 << 11)) {
         frameno_bytes[0] = 0xC0 | ((t->frameno >> 6) & 0x1F);
         frameno_bytes[1] = 0x80 | ((t->frameno     ) & 0x3F);
         frameno_len = 2;
-    } else if(t->frameno < ((uint32_t)1 << 16)) {
+    } else if(t->frameno < ((tflac_u32)1 << 16)) {
         frameno_bytes[0] = 0xE0 | ((t->frameno >> 12) & 0x0F);
         frameno_bytes[1] = 0x80 | ((t->frameno >>  6) & 0x3F);
         frameno_bytes[2] = 0x80 | ((t->frameno      ) & 0x3F);
         frameno_len = 3;
-    } else if(t->frameno < ((uint32_t)1 << 21)) {
+    } else if(t->frameno < ((tflac_u32)1 << 21)) {
         frameno_bytes[0] = 0xF0 | ((t->frameno >> 18) & 0x07);
         frameno_bytes[1] = 0x80 | ((t->frameno >> 12) & 0x3F);
         frameno_bytes[2] = 0x80 | ((t->frameno >>  6) & 0x3F);
         frameno_bytes[3] = 0x80 | ((t->frameno      ) & 0x3F);
         frameno_len = 4;
-    } else if(t->frameno < ((uint32_t)1 << 26)) {
+    } else if(t->frameno < ((tflac_u32)1 << 26)) {
         frameno_bytes[0] = 0xF8 | ((t->frameno >> 24) & 0x03);
         frameno_bytes[1] = 0x80 | ((t->frameno >> 18) & 0x3F);
         frameno_bytes[2] = 0x80 | ((t->frameno >> 12) & 0x3F);
@@ -1788,13 +2725,71 @@ int tflac_encode_frame_header(tflac *t) {
 
 TFLAC_PUBLIC
 void tflac_init(tflac *t) {
-    *t = tflac_zero;
+    tflac_bitwriter_init(&t->bw);
+    tflac_md5_init(&t->md5_ctx);
+
+    t->blocksize = 0;
+    t->samplerate = 0;
+    t->channels = 0;
+    t->bitdepth = 0;
+    t->max_rice_value = 0;
+    t->min_partition_order = 0;
+    t->max_partition_order = 0;
+    t->partition_order = 0;
+
+    t->enable_constant_subframe = 1;
+    t->enable_fixed_subframe = 1;
+    t->enable_md5 = 1;
+
+    t->frame_header = 0;
+
+    t->samplecount = TFLAC_U64_ZERO;
+    t->frameno = 0;
+    t->verbatim_subframe_len = 0;
+    t->cur_blocksize = 0;
+    t->max_frame_len = 0;
+
+    t->min_frame_size = 0;
+    t->max_frame_size = 0;
+
+    t->wasted_bits = 0;
+    t->constant = 0;
+
+    t->md5_digest[0] = '\0';
+    t->md5_digest[1] = '\0';
+    t->md5_digest[2] = '\0';
+    t->md5_digest[3] = '\0';
+    t->md5_digest[4] = '\0';
+    t->md5_digest[5] = '\0';
+    t->md5_digest[6] = '\0';
+    t->md5_digest[7] = '\0';
+    t->md5_digest[8] = '\0';
+    t->md5_digest[9] = '\0';
+    t->md5_digest[10] = '\0';
+    t->md5_digest[11] = '\0';
+    t->md5_digest[12] = '\0';
+    t->md5_digest[13] = '\0';
+    t->md5_digest[14] = '\0';
+    t->md5_digest[15] = '\0';
+
+    t->calculate_order[0] = NULL;
+    t->calculate_order[1] = NULL;
+    t->calculate_order[2] = NULL;
+    t->calculate_order[3] = NULL;
+    t->calculate_order[4] = NULL;
+
+    t->residuals[0] = NULL;
+    t->residuals[1] = NULL;
+    t->residuals[2] = NULL;
+    t->residuals[3] = NULL;
+    t->residuals[4] = NULL;
+
 #ifndef TFLAC_DISABLE_COUNTERS
     {
         unsigned int i,j;
         for(i=0;i<8;i++) {
             for(j=0;j<TFLAC_SUBFRAME_TYPE_COUNT;j++) {
-                t->subframe_type_counts[i][j] = 0;
+                t->subframe_type_counts[i][j] = TFLAC_U64_ZERO;
             }
         }
     }
@@ -1866,8 +2861,8 @@ void tflac_update_frame_header(tflac *t) {
 }
 
 TFLAC_PUBLIC
-int tflac_validate(tflac *t, void* ptr, uint32_t len) {
-    uint32_t res_len = 0;
+int tflac_validate(tflac *t, void* ptr, tflac_u32 len) {
+    tflac_u32 res_len = 0;
     uintptr_t p;
 
     if(t->blocksize < 16) return -1;
@@ -1898,12 +2893,12 @@ int tflac_validate(tflac *t, void* ptr, uint32_t len) {
     if(len < tflac_size_memory(t->blocksize)) return -1;
 
     p = ((uintptr_t)ptr+15) & ~ (uintptr_t)0x0F;
-    res_len = (15 + (t->blocksize * TFLAC_INT_SIZE)) & 0xFFFFFFF0;
-    t->residuals[0] = (tflac_int*)(p + (0 * res_len));
-    t->residuals[1] = (tflac_int*)(p + (1 * res_len));
-    t->residuals[2] = (tflac_int*)(p + (2 * res_len));
-    t->residuals[3] = (tflac_int*)(p + (3 * res_len));
-    t->residuals[4] = (tflac_int*)(p + (4 * res_len));
+    res_len = (15UL + (t->blocksize * 4UL)) & 0xFFFFFFF0UL;
+    t->residuals[0] = (tflac_s32*)(p + (0 * res_len));
+    t->residuals[1] = (tflac_s32*)(p + (1 * res_len));
+    t->residuals[2] = (tflac_s32*)(p + (2 * res_len));
+    t->residuals[3] = (tflac_s32*)(p + (3 * res_len));
+    t->residuals[4] = (tflac_s32*)(p + (4 * res_len));
 
     t->partition_order = t->min_partition_order;
     while( (t->blocksize % (1<<(t->partition_order+1)) == 0) && t->partition_order < t->max_partition_order) {
@@ -1914,27 +2909,27 @@ int tflac_validate(tflac *t, void* ptr, uint32_t len) {
 
     tflac_update_frame_header(t);
 
-    t->calculate_order[0] = tflac_calculate_fixed_residuals_order0;
-    t->calculate_order[1] = tflac_calculate_fixed_residuals_order1;
-    t->calculate_order[2] = tflac_calculate_fixed_residuals_order2;
-    t->calculate_order[3] = tflac_calculate_fixed_residuals_order3;
-    t->calculate_order[4] = tflac_calculate_fixed_residuals_order4;
+    t->calculate_order[0] = tflac_cfr_order0;
+    t->calculate_order[1] = tflac_cfr_order1;
+    t->calculate_order[2] = tflac_cfr_order2;
+    t->calculate_order[3] = tflac_cfr_order3;
+    t->calculate_order[4] = tflac_cfr_order4;
 
     switch(t->bitdepth) {
         case 32: {
-            t->calculate_order[1] = tflac_calculate_fixed_residuals_order1_64bit;
+            t->calculate_order[1] = tflac_cfr_order1_64bit;
         }
         /* fall-through */
         case 31: {
-            t->calculate_order[2] = tflac_calculate_fixed_residuals_order2_64bit;
+            t->calculate_order[2] = tflac_cfr_order2_64bit;
         }
         /* fall-through */
         case 30: {
-            t->calculate_order[3] = tflac_calculate_fixed_residuals_order3_64bit;
+            t->calculate_order[3] = tflac_cfr_order3_64bit;
         }
         /* fall-through */
         case 29: {
-            t->calculate_order[4] = tflac_calculate_fixed_residuals_order4_64bit;
+            t->calculate_order[4] = tflac_cfr_order4_64bit;
         }
         /* fall-through */
         default: break;
@@ -1947,7 +2942,7 @@ int tflac_validate(tflac *t, void* ptr, uint32_t len) {
 
 TFLAC_PRIVATE
 int tflac_encode(tflac* t, const tflac_encode_params* p) {
-    uint8_t c = 0;
+    tflac_u8 c = 0;
     int r;
 
     if(t->cur_blocksize != p->blocksize) {
@@ -1965,7 +2960,7 @@ int tflac_encode(tflac* t, const tflac_encode_params* p) {
 
     if(t->enable_md5) p->calculate_md5(t, p->samples);
 
-    t->bw = tflac_bitwriter_zero;
+    tflac_bitwriter_init(&t->bw);
     t->bw.buffer = p->buffer;
     t->bw.len    = p->buffer_len;
     if(t->bw.len > t->max_frame_len) t->bw.len = t->max_frame_len;
@@ -1973,7 +2968,7 @@ int tflac_encode(tflac* t, const tflac_encode_params* p) {
     if( (r = tflac_encode_frame_header(t)) != 0) return r;
 
     for(c=0;c<t->channels;c++) {
-        t->residual_errors[0] = 0;
+        t->residual_errors[0] = TFLAC_U64_ZERO;
         p->analyze(t, c, p->samples);
         tflac_rescale_samples(t);
         if( (r = tflac_encode_subframe(t, c)) != 0) return r;
@@ -1993,17 +2988,22 @@ int tflac_encode(tflac* t, const tflac_encode_params* p) {
     }
 
     t->frameno++;
-    t->frameno &= 0x7FFFFFFF; /* cap to 31 bits */
+    t->frameno &= UINT32_C(0x7FFFFFFF); /* cap to 31 bits */
 
-    t->samplecount += t->cur_blocksize;
-    t->samplecount &= 0x0000000FFFFFFFFFULL; /* cap to 36 bits */
+    TFLAC_U64_ADD_WORD(t->samplecount, t->cur_blocksize);
+
+#ifdef TFLAC_32BIT_ONLY
+    t->samplecount.hi &= UINT32_C(0x0000000F); /* cap to 4 bits of extension */
+#else
+    t->samplecount &= UINT64_C(0x0000000FFFFFFFFF); /* cap to 36 bits */
+#endif
 
     return 0;
 }
 
 TFLAC_PUBLIC
-int tflac_encode_int16p(tflac* t, uint32_t blocksize, int16_t** samples, void* buffer, uint32_t len, uint32_t* used) {
-    tflac_encode_params p = TFLAC_ENCODE_PARAMS_ZERO;
+int tflac_encode_s16p(tflac* t, tflac_u32 blocksize, tflac_s16** samples, void* buffer, tflac_u32 len, tflac_u32* used) {
+    tflac_encode_params p;
 
     p.blocksize = blocksize;
     p.buffer_len = len;
@@ -2017,8 +3017,8 @@ int tflac_encode_int16p(tflac* t, uint32_t blocksize, int16_t** samples, void* b
 }
 
 TFLAC_PUBLIC
-int tflac_encode_int16i(tflac* t, uint32_t blocksize, int16_t* samples, void* buffer, uint32_t len, uint32_t* used) {
-    tflac_encode_params p = TFLAC_ENCODE_PARAMS_ZERO;
+int tflac_encode_s16i(tflac* t, tflac_u32 blocksize, tflac_s16* samples, void* buffer, tflac_u32 len, tflac_u32* used) {
+    tflac_encode_params p;
 
     p.blocksize = blocksize;
     p.buffer_len = len;
@@ -2032,8 +3032,8 @@ int tflac_encode_int16i(tflac* t, uint32_t blocksize, int16_t* samples, void* bu
 }
 
 TFLAC_PUBLIC
-int tflac_encode_int32p(tflac* t, uint32_t blocksize, int32_t** samples, void* buffer, uint32_t len, uint32_t* used) {
-    tflac_encode_params p = TFLAC_ENCODE_PARAMS_ZERO;
+int tflac_encode_s32p(tflac* t, tflac_u32 blocksize, tflac_s32** samples, void* buffer, tflac_u32 len, tflac_u32* used) {
+    tflac_encode_params p;
 
     p.blocksize = blocksize;
     p.buffer_len = len;
@@ -2047,8 +3047,8 @@ int tflac_encode_int32p(tflac* t, uint32_t blocksize, int32_t** samples, void* b
 }
 
 TFLAC_PUBLIC
-int tflac_encode_int32i(tflac* t, uint32_t blocksize, int32_t* samples, void* buffer, uint32_t len, uint32_t* used) {
-    tflac_encode_params p = TFLAC_ENCODE_PARAMS_ZERO;
+int tflac_encode_s32i(tflac* t, tflac_u32 blocksize, tflac_s32* samples, void* buffer, tflac_u32 len, tflac_u32* used) {
+    tflac_encode_params p;
 
     p.blocksize = blocksize;
     p.buffer_len = len;
@@ -2063,13 +3063,13 @@ int tflac_encode_int32i(tflac* t, uint32_t blocksize, int32_t* samples, void* bu
 
 TFLAC_PUBLIC
 TFLAC_CONST
-uint32_t tflac_size_streaminfo(void) {
+tflac_u32 tflac_size_streaminfo(void) {
     return TFLAC_SIZE_STREAMINFO;
 }
 
 TFLAC_PUBLIC
 TFLAC_CONST
-uint32_t tflac_size(void) {
+tflac_u32 tflac_size(void) {
     return sizeof(tflac);
 }
 
@@ -2079,12 +3079,15 @@ void tflac_finalize(tflac* t) {
         tflac_md5_finalize(&t->md5_ctx);
         tflac_md5_digest(&t->md5_ctx, t->md5_digest);
     }
+    tflac_md5_init(&t->md5_ctx);
 }
 
 TFLAC_PUBLIC
-int tflac_encode_streaminfo(const tflac* t, uint32_t lastflag, void* buffer, uint32_t len, uint32_t* used) {
+int tflac_encode_streaminfo(const tflac* t, tflac_u32 lastflag, void* buffer, tflac_u32 len, tflac_u32* used) {
     int r;
-    tflac_bitwriter bw = TFLAC_BITWRITER_ZERO;
+    tflac_bitwriter bw;
+
+    tflac_bitwriter_init(&bw);
 
     bw.buffer = buffer;
     bw.len = len;
@@ -2111,7 +3114,13 @@ int tflac_encode_streaminfo(const tflac* t, uint32_t lastflag, void* buffer, uin
     if( (r = tflac_bitwriter_add(&bw, 5, t->bitdepth - 1)) != 0) return r;
 
     /* total samples */
+#ifdef TFLAC_32BIT_ONLY
+    if( (r = tflac_bitwriter_add(&bw, 4, t->samplecount.hi)) != 0) return r;
+    if( (r = tflac_bitwriter_add(&bw, 16, t->samplecount.lo >> 16)) != 0) return r;
+    if( (r = tflac_bitwriter_add(&bw, 16, t->samplecount.lo )) != 0) return r;
+#else
     if( (r = tflac_bitwriter_add(&bw, 36, t->samplecount)) != 0) return r;
+#endif
 
     /* md5 checksum */
     if( (r = tflac_bitwriter_add(&bw, 8, t->md5_digest[0])) != 0) return r;
@@ -2136,91 +3145,91 @@ int tflac_encode_streaminfo(const tflac* t, uint32_t lastflag, void* buffer, uin
     return 0;
 }
 
-TFLAC_PUBLIC void tflac_set_blocksize(tflac *t, uint32_t blocksize) {
+TFLAC_PUBLIC void tflac_set_blocksize(tflac *t, tflac_u32 blocksize) {
     t->blocksize = blocksize;
 }
 
-TFLAC_PUBLIC void tflac_set_samplerate(tflac *t, uint32_t samplerate) {
+TFLAC_PUBLIC void tflac_set_samplerate(tflac *t, tflac_u32 samplerate) {
     t->samplerate = samplerate;
 }
 
-TFLAC_PUBLIC void tflac_set_channels(tflac *t, uint32_t channels) {
+TFLAC_PUBLIC void tflac_set_channels(tflac *t, tflac_u32 channels) {
     t->channels = channels;
 }
 
-TFLAC_PUBLIC void tflac_set_bitdepth(tflac *t, uint32_t bitdepth) {
+TFLAC_PUBLIC void tflac_set_bitdepth(tflac *t, tflac_u32 bitdepth) {
     t->bitdepth = bitdepth;
 }
 
-TFLAC_PUBLIC void tflac_set_max_rice_value(tflac *t, uint32_t max_rice_value) {
-    t->max_rice_value = (uint8_t)max_rice_value;
+TFLAC_PUBLIC void tflac_set_max_rice_value(tflac *t, tflac_u32 max_rice_value) {
+    t->max_rice_value = (tflac_u8)max_rice_value;
 }
 
-TFLAC_PUBLIC void tflac_set_min_partition_order(tflac *t, uint32_t min_partition_order) {
-    t->min_partition_order = (uint8_t)min_partition_order;
+TFLAC_PUBLIC void tflac_set_min_partition_order(tflac *t, tflac_u32 min_partition_order) {
+    t->min_partition_order = (tflac_u8)min_partition_order;
 }
 
-TFLAC_PUBLIC void tflac_set_max_partition_order(tflac *t, uint32_t max_partition_order) {
-    t->max_partition_order = (uint8_t)max_partition_order;
+TFLAC_PUBLIC void tflac_set_max_partition_order(tflac *t, tflac_u32 max_partition_order) {
+    t->max_partition_order = (tflac_u8)max_partition_order;
 }
 
-TFLAC_PUBLIC void tflac_set_constant_subframe(tflac* t, uint32_t enable) {
-    t->enable_constant_subframe = (uint8_t)enable;
+TFLAC_PUBLIC void tflac_set_constant_subframe(tflac* t, tflac_u32 enable) {
+    t->enable_constant_subframe = (tflac_u8)enable;
 }
 
-TFLAC_PUBLIC void tflac_set_fixed_subframe(tflac* t, uint32_t enable) {
-    t->enable_fixed_subframe = (uint8_t)enable;
+TFLAC_PUBLIC void tflac_set_fixed_subframe(tflac* t, tflac_u32 enable) {
+    t->enable_fixed_subframe = (tflac_u8)enable;
 }
 
-TFLAC_PUBLIC void tflac_set_enable_md5(tflac* t, uint32_t enable) {
-    t->enable_md5 = (uint8_t)enable;
+TFLAC_PUBLIC void tflac_set_enable_md5(tflac* t, tflac_u32 enable) {
+    t->enable_md5 = (tflac_u8)enable;
 }
 
-TFLAC_PURE TFLAC_PUBLIC uint32_t tflac_get_blocksize(const tflac* t) {
+TFLAC_PURE TFLAC_PUBLIC tflac_u32 tflac_get_blocksize(const tflac* t) {
     return t->blocksize;
 }
 
-TFLAC_PURE TFLAC_PUBLIC uint32_t tflac_get_samplerate(const tflac* t) {
+TFLAC_PURE TFLAC_PUBLIC tflac_u32 tflac_get_samplerate(const tflac* t) {
     return t->samplerate;
 }
 
-TFLAC_PURE TFLAC_PUBLIC uint32_t tflac_get_channels(const tflac* t) {
+TFLAC_PURE TFLAC_PUBLIC tflac_u32 tflac_get_channels(const tflac* t) {
     return t->channels;
 }
 
-TFLAC_PURE TFLAC_PUBLIC uint32_t tflac_get_bitdepth(const tflac* t) {
+TFLAC_PURE TFLAC_PUBLIC tflac_u32 tflac_get_bitdepth(const tflac* t) {
     return t->bitdepth;
 }
 
-TFLAC_PURE TFLAC_PUBLIC uint32_t tflac_get_max_rice_value(const tflac* t) {
+TFLAC_PURE TFLAC_PUBLIC tflac_u32 tflac_get_max_rice_value(const tflac* t) {
     return t->max_rice_value;
 }
 
-TFLAC_PURE TFLAC_PUBLIC uint32_t tflac_get_min_partition_order(const tflac* t) {
+TFLAC_PURE TFLAC_PUBLIC tflac_u32 tflac_get_min_partition_order(const tflac* t) {
     return t->min_partition_order;
 }
 
-TFLAC_PURE TFLAC_PUBLIC uint32_t tflac_get_max_partition_order(const tflac* t) {
+TFLAC_PURE TFLAC_PUBLIC tflac_u32 tflac_get_max_partition_order(const tflac* t) {
     return t->max_partition_order;
 }
 
-TFLAC_PURE TFLAC_PUBLIC uint32_t tflac_get_constant_subframe(const tflac* t) {
+TFLAC_PURE TFLAC_PUBLIC tflac_u32 tflac_get_constant_subframe(const tflac* t) {
     return t->enable_constant_subframe;
 }
 
-TFLAC_PURE TFLAC_PUBLIC uint32_t tflac_get_fixed_subframe(const tflac* t) {
+TFLAC_PURE TFLAC_PUBLIC tflac_u32 tflac_get_fixed_subframe(const tflac* t) {
     return t->enable_fixed_subframe;
 }
 
-TFLAC_PURE TFLAC_PUBLIC uint32_t tflac_get_wasted_bits(const tflac* t) {
+TFLAC_PURE TFLAC_PUBLIC tflac_u32 tflac_get_wasted_bits(const tflac* t) {
     return t->wasted_bits;
 }
 
-TFLAC_PURE TFLAC_PUBLIC uint32_t tflac_get_constant(const tflac* t) {
+TFLAC_PURE TFLAC_PUBLIC tflac_u32 tflac_get_constant(const tflac* t) {
     return t->constant;
 }
 
-TFLAC_PURE TFLAC_PUBLIC uint32_t tflac_get_enable_md5(const tflac* t) {
+TFLAC_PURE TFLAC_PUBLIC tflac_u32 tflac_get_enable_md5(const tflac* t) {
     return t->enable_md5;
 }
 
@@ -2237,7 +3246,7 @@ TFLAC_PURE TFLAC_PUBLIC uint32_t tflac_get_enable_md5(const tflac* t) {
  *       and still get decent compression results.
  */
 
-TFLAC_PRIVATE const uint8_t tflac_crc8_table[256] = {
+TFLAC_PRIVATE const tflac_u8 tflac_crc8_table[256] = {
   0x00, 0x07, 0x0e, 0x09, 0x1c, 0x1b, 0x12, 0x15,
   0x38, 0x3f, 0x36, 0x31, 0x24, 0x23, 0x2a, 0x2d,
   0x70, 0x77, 0x7e, 0x79, 0x6c, 0x6b, 0x62, 0x65,
@@ -2272,7 +3281,7 @@ TFLAC_PRIVATE const uint8_t tflac_crc8_table[256] = {
   0xe6, 0xe1, 0xe8, 0xef, 0xfa, 0xfd, 0xf4, 0xf3,
 };
 
-TFLAC_PRIVATE const uint16_t tflac_crc16_tables[8][256] = {
+TFLAC_PRIVATE const tflac_u16 tflac_crc16_tables[8][256] = {
   {
     0x0000,  0x8005,  0x800f,  0x000a,  0x801b,  0x001e,  0x0014,  0x8011,
     0x8033,  0x0036,  0x003c,  0x8039,  0x0028,  0x802d,  0x8027,  0x0022,
@@ -2546,5 +3555,63 @@ TFLAC_PRIVATE const uint16_t tflac_crc16_tables[8][256] = {
     0x8232,  0x9234,  0xa23e,  0xb238,  0xc22a,  0xd22c,  0xe226,  0xf220,
   },
 };
+
+TFLAC_PRIVATE void (*tflac_cfr_order0)(
+    tflac_u32 blocksize,
+    const tflac_s32* TFLAC_RESTRICT,
+    tflac_s32* TFLAC_RESTRICT,
+    tflac_u64* TFLAC_RESTRICT) = tflac_cfr_order0_std;
+
+TFLAC_PRIVATE void (*tflac_cfr_order1)(
+    tflac_u32 blocksize,
+    const tflac_s32* TFLAC_RESTRICT,
+    tflac_s32* TFLAC_RESTRICT,
+    tflac_u64* TFLAC_RESTRICT) = tflac_cfr_order1_std;
+
+TFLAC_PRIVATE void (*tflac_cfr_order2)(
+    tflac_u32 blocksize,
+    const tflac_s32* TFLAC_RESTRICT,
+    tflac_s32* TFLAC_RESTRICT,
+    tflac_u64* TFLAC_RESTRICT) = tflac_cfr_order2_std;
+
+TFLAC_PRIVATE void (*tflac_cfr_order3)(
+    tflac_u32 blocksize,
+    const tflac_s32* TFLAC_RESTRICT,
+    tflac_s32* TFLAC_RESTRICT,
+    tflac_u64* TFLAC_RESTRICT) = tflac_cfr_order3_std;
+
+TFLAC_PRIVATE void (*tflac_cfr_order4)(
+    tflac_u32 blocksize,
+    const tflac_s32* TFLAC_RESTRICT,
+    tflac_s32* TFLAC_RESTRICT,
+    tflac_u64* TFLAC_RESTRICT) = tflac_cfr_order4_std;
+
+TFLAC_PUBLIC
+void tflac_detect_cpu(void) {
+    int info[4];
+    info[0] = 0;
+    info[1] = 0;
+    info[2] = 0;
+    info[3] = 0;
+
+#if defined(TFLAC_X86) || defined(TFLAC_X64)
+#if defined(_MSC_VER) &&  _MSC_VER >= 1400
+    __cpuid(info,1);
+#elif defined(__GNUC__)
+    __get_cpuid(1, (unsigned int *)&info[0], (unsigned int *)&info[1], (unsigned int *)&info[2], (unsigned int *)&info[3]);
 #endif
+#endif
+
+#ifdef TFLAC_ENABLE_SSE2
+    if( (info[3] & (1 << 26)) != 0) {
+        tflac_cfr_order0 = tflac_cfr_order0_sse2;
+        tflac_cfr_order1 = tflac_cfr_order1_sse2;
+        tflac_cfr_order2 = tflac_cfr_order2_sse2;
+        tflac_cfr_order3 = tflac_cfr_order3_sse2;
+        tflac_cfr_order4 = tflac_cfr_order4_sse2;
+    }
+#endif
+}
+
+#endif /* IMPLEMENTATION */
 

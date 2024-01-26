@@ -2,7 +2,7 @@
 
 A single-file [FLAC](https://xiph.org/flac/) encoding library. Does not
 use any C library functions, does not allocate memory directly (it leaves
-that up to you to figure out).
+that up to you to figure out). Compatible with C89.
 
 Use case: you want to generate FLAC audio without requiring an external
 library, and simplicity is your main concern, not compression or speed.
@@ -15,25 +15,38 @@ tflac currently supports the following subframe encodings:
 * `FIXED`
 * `VERBATIM`
 
-It's roughly equivalent to compressing with FLAC's "-0" switch but probably
-not as good - this doesn't attempt left/side, right/side, or mid/side
-encoding, which would probably help compression a bit.
+It's roughly equivalent to compressing with FLAC's "-0" switch.
 
 ## Building
 
 In one C file define `TFLAC_IMPLEMENTATION` before including `tflac.h`.
 
-Additionally if you need to customize function decorators you can define
-`TFLAC_PUBLIC` and/or `TFLAC_PRIVATE` before including `tflac.h`. For
-example, if you're building a DLL on Windows you could have:
+```c
+#define TFLAC_IMPLEMENTATION
+#include "tflac.h"
+```
+
+### Options
+
+There's a few compile-time options you can set:
+
+* Define `TFLAC_32BIT_ONLY` and tflac will not use 64-bit types at all,
+and instead emulate 64-bit types with a pair of 32-bit ints.
+* Define `TFLAC_DISABLE_SSE2` to disable SSE2 detection.
+* Define `TFLAC_PUBLIC` if you need to customize function decorators
+for public API functions.
+* Define `TFLAC_PRIVATE` if you need to customize function decorators
+for private API functions.
+
+For example, if you're building a DLL on Windows and want to export
+the public API functions you could define `TFLAC_PUBLIC` as
+`__declspec(dllexport)` like so:
 
 ```c
 #define TFLAC_IMPLEMENTATION
 #define TFLAC_PUBLIC __declspec(dllexport)
 #include "tflac.h"
 ```
-
-I suspect in most cases you won't have to set this.
 
 ## Usage
 
@@ -77,12 +90,15 @@ required buffer size with a C macro, or with a function. The parameters
 are your audio block size, channels, and bit depth.
 
 You can have your audio in interleaved or planar format, and as either
-`int16_t` or `int32_t`. The encode functions are:
+`tflac_s16` or `tflac_s32`. The encode functions are:
 
-* `tflac_encode_int16i`: `int16_t` samples in a 1-dimensional array (`int16_t*`), interleaved.
-* `tflac_encode_int16p`: `int16_t` samples in a 2-dimensional array (`int16_t**`).
-* `tflac_encode_int32i`: `int32_t` samples in a 1-dimensional array (`int32_t*`), interleaved.
-* `tflac_encode_int32p`: `int32_t` samples in a 2-dimensional array (`int32_t**`).
+* `tflac_encode_s16i`: `tflac_s16` samples in a 1-dimensional array (`tflac_s16*`), interleaved.
+* `tflac_encode_s16p`: `tflac_s16` samples in a 2-dimensional array (`tflac_s16**`).
+* `tflac_encode_s32i`: `tflac_int32` samples in a 1-dimensional array (`tflac_int32*`), interleaved.
+* `tflac_encode_s32p`: `tflac_int32` samples in a 2-dimensional array (`tflac_int32**`).
+
+`tflac_s16` is a typedef for `int16_t`, and `tflac_s32` is a typedef for `int32_t`
+in most cases.
 
 ```C
 
@@ -96,20 +112,20 @@ You can have your audio in interleaved or planar format, and as either
 
 int main(int argc, const char *argv[]) {
     /* get the size we need to alloc for tflac internal memory */
-    uint32_t memory_size = tflac_size_memory(BLOCKSIZE);
+    tflac_u32 memory_size = tflac_size_memory(BLOCKSIZE);
 
     /* get a chunk for tflac internal memory */
     void* memory = malloc(memory_size);
 
     /* get the size we need to alloc for the output buffer */
-    uint32_t buffer_size = tflac_size_frame(BLOCKSIZE, CHANNELS, BITDEPTH);
+    tflac_u32 buffer_size = tflac_size_frame(BLOCKSIZE, CHANNELS, BITDEPTH);
 
     /* get a hunk for our buffer */
     void* buffer = malloc(buffer_size);
 
     /* this will be used to know how much of the buffer to write
        after calls to encode */
-    uint32_t buffer_used = 0;
+    tflac_u32 buffer_used = 0;
 
     tflac t;
 
@@ -137,10 +153,10 @@ int main(int argc, const char *argv[]) {
 
         /* hand-waving over this part, here we're using a 2d array of audio samples
         and assuming it's always BLOCKSIZE samples */
-        int32_t** samples = get_some_audio_somehow();
+        tflac_s32** samples = get_some_audio_somehow();
 
         /* encode your audio samples into a FLAC frame */
-        tflac_encode_int32p(&t, BLOCKSIZE, samples, buffer, buffer_size, &buffer_used);
+        tflac_encode_s32p(&t, BLOCKSIZE, samples, buffer, buffer_size, &buffer_used);
 
         /* and write it out */
         fwrite(buffer, 1, buffer_used, output);
