@@ -50,6 +50,16 @@ the public API functions you could define `TFLAC_PUBLIC` as
 
 ## Usage
 
+### Detect your CPU features
+
+Call `tflac_detect_cpu()` before doing anything, like as early in your
+program as possible, before you create any threads etc.
+
+This will attempt to check your CPU type, and set some internal
+global variables. For example, if your CPU supports SSE2, the library
+will swap the default fixed-order calculators for a set that use
+SSE2.
+
 ### Get memory and initialize things.
 
 You'll have to create a tflac struct. The whole struct definition is
