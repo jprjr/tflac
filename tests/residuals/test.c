@@ -395,11 +395,29 @@ STANDARD_TEST_DEF(2,wide_std)
 STANDARD_TEST_DEF(3,wide_std)
 STANDARD_TEST_DEF(4,wide_std)
 
+#ifdef TFLAC_ENABLE_SSE2
 STANDARD_TEST_DEF(0,sse2)
 STANDARD_TEST_DEF(1,sse2)
 STANDARD_TEST_DEF(2,sse2)
 STANDARD_TEST_DEF(3,sse2)
 STANDARD_TEST_DEF(4,sse2)
+#endif
+
+#ifdef TFLAC_ENABLE_SSSE3
+STANDARD_TEST_DEF(0,ssse3)
+STANDARD_TEST_DEF(1,ssse3)
+STANDARD_TEST_DEF(2,ssse3)
+STANDARD_TEST_DEF(3,ssse3)
+STANDARD_TEST_DEF(4,ssse3)
+#endif
+
+#ifdef TFLAC_ENABLE_SSE4_1
+STANDARD_TEST_DEF(0,sse4_1)
+STANDARD_TEST_DEF(1,sse4_1)
+STANDARD_TEST_DEF(2,sse4_1)
+STANDARD_TEST_DEF(3,sse4_1)
+STANDARD_TEST_DEF(4,sse4_1)
+#endif
 
 int main(void) {
     int r = 0;
@@ -429,16 +447,35 @@ int main(void) {
     r |= STANDARD_TEST(3,std)();
     r |= STANDARD_TEST(4,std)();
 
+    r |= STANDARD_TEST(1,wide_std)();
+    r |= STANDARD_TEST(2,wide_std)();
+    r |= STANDARD_TEST(3,wide_std)();
+    r |= STANDARD_TEST(4,wide_std)();
+
+#ifdef TFLAC_ENABLE_SSE2
     r |= STANDARD_TEST(0,sse2)();
     r |= STANDARD_TEST(1,sse2)();
     r |= STANDARD_TEST(2,sse2)();
     r |= STANDARD_TEST(3,sse2)();
     r |= STANDARD_TEST(4,sse2)();
+#endif
 
-    r |= STANDARD_TEST(1,wide_std)();
-    r |= STANDARD_TEST(2,wide_std)();
-    r |= STANDARD_TEST(3,wide_std)();
-    r |= STANDARD_TEST(4,wide_std)();
+
+#ifdef TFLAC_ENABLE_SSSE3
+    r |= STANDARD_TEST(0,ssse3)();
+    r |= STANDARD_TEST(1,ssse3)();
+    r |= STANDARD_TEST(2,ssse3)();
+    r |= STANDARD_TEST(3,ssse3)();
+    r |= STANDARD_TEST(4,ssse3)();
+#endif
+
+#ifdef TFLAC_ENABLE_SSE_4_1
+    r |= STANDARD_TEST(0,sse4_1)();
+    r |= STANDARD_TEST(1,sse4_1)();
+    r |= STANDARD_TEST(2,sse4_1)();
+    r |= STANDARD_TEST(3,sse4_1)();
+    r |= STANDARD_TEST(4,sse4_1)();
+#endif
 
     free(samples_unaligned);
     free(residuals_unaligned);
