@@ -1346,7 +1346,7 @@ tflac_u32 tflac_wasted_bits_int32(tflac_s32 sample) {
 #if defined(_MSC_VER) && _MSC_VER >= 1400
 #ifdef TFLAC_X64
     unsigned long index;
-    _BitScanForward64(&index, 0xFFFFFFFF00000000ULL | (unsigned __int64)sample);
+    _BitScanForward64(&index, UINT64_C(0xFFFFFFFF00000000) | (unsigned __int64)sample);
     return (tflac_u32)index;
 #else
     unsigned long index;
@@ -1355,7 +1355,7 @@ tflac_u32 tflac_wasted_bits_int32(tflac_s32 sample) {
     return (tflac_u32)index;
 #endif
 #elif __GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 6)
-    return (tflac_u32)__builtin_ctzll(0xFFFFFFFF00000000ULL | (unsigned long long)sample);
+    return (tflac_u32)__builtin_ctzll( UINT64_C(0xFFFFFFFF00000000) | (unsigned long long)sample);
 #else
     /* TODO optimize for other platforms? */
     tflac_u32 s = (tflac_u32)sample;
@@ -1750,11 +1750,11 @@ TFLAC_PRIVATE void tflac_update_md5_s16i_2(tflac* t, const tflac_s16* samples) {
     tflac_uint v;
 
     while(b >= step) {
-        v  = (((tflac_uint)samples[0]) & 0xFFFF) << 0;
-        v |= (((tflac_uint)samples[1]) & 0xFFFF) << 16;
+        v  = (((tflac_uint)samples[0]) & UINT32_C(0xFFFF)) << 0;
+        v |= (((tflac_uint)samples[1]) & UINT32_C(0xFFFF)) << 16;
 #ifndef TFLAC_32BIT_ONLY
-        v |= (((tflac_uint)samples[2]) & 0xFFFF) << 32;
-        v |= (((tflac_uint)samples[3]) & 0xFFFF) << 48;
+        v |= (((tflac_uint)samples[2]) & UINT32_C(0xFFFF)) << 32;
+        v |= (((tflac_uint)samples[3]) & UINT32_C(0xFFFF)) << 48;
 #endif
         tflac_md5_addsample(&t->md5_ctx, TFLAC_BW_BITS, v);
 
@@ -1800,11 +1800,11 @@ TFLAC_PRIVATE void tflac_update_md5_s32i_2(tflac* t, const tflac_s32* samples) {
     tflac_uint v;
 
     while(b >= step) {
-        v  = (((tflac_uint)samples[0]) & 0xFFFF) << 0;
-        v |= (((tflac_uint)samples[1]) & 0xFFFF) << 16;
+        v  = (((tflac_uint)samples[0]) & UINT32_C(0xFFFF)) << 0;
+        v |= (((tflac_uint)samples[1]) & UINT32_C(0xFFFF)) << 16;
 #ifndef TFLAC_32BIT_ONLY
-        v |= (((tflac_uint)samples[2]) & 0xFFFF) << 32;
-        v |= (((tflac_uint)samples[3]) & 0xFFFF) << 48;
+        v |= (((tflac_uint)samples[2]) & UINT32_C(0xFFFF)) << 32;
+        v |= (((tflac_uint)samples[3]) & UINT32_C(0xFFFF)) << 48;
 #endif
         tflac_md5_addsample(&t->md5_ctx, TFLAC_BW_BITS, v);
 
@@ -1824,8 +1824,8 @@ TFLAC_PRIVATE void tflac_update_md5_s32i_3(tflac* t, const tflac_s32* samples) {
     tflac_uint v;
 
     while(b >= 2) {
-        v  = (((tflac_uint)samples[0]) & 0xFFFFFF) << 0;
-        v |= (((tflac_uint)samples[1]) & 0xFFFFFF) << 24;
+        v  = (((tflac_uint)samples[0]) & UINT32_C(0xFFFFFF)) << 0;
+        v |= (((tflac_uint)samples[1]) & UINT32_C(0xFFFFFF)) << 24;
         tflac_md5_addsample(&t->md5_ctx, 48, v);
 
         b -= 2;
