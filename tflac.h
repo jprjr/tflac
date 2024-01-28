@@ -416,6 +416,12 @@ void tflac_detect_cpu(void);
 TFLAC_PUBLIC
 int tflac_default_sse2(int enable);
 
+TFLAC_PUBLIC
+int tflac_default_ssse3(int enable);
+
+TFLAC_PUBLIC
+int tflac_default_sse4_1(int enable);
+
 /* you can also enable sse2 on the individual encoder, down below */
 
 /* returns the maximum number of bytes to store a whole FLAC frame */
@@ -503,7 +509,12 @@ void tflac_set_enable_md5(tflac* t, tflac_u32 enable);
 TFLAC_PUBLIC
 tflac_u32 tflac_enable_sse2(tflac* t, tflac_u32 enable);
 
-/* you can also enable sse2 on the individual encoder, down below */
+TFLAC_PUBLIC
+tflac_u32 tflac_enable_ssse3(tflac* t, tflac_u32 enable);
+
+TFLAC_PUBLIC
+tflac_u32 tflac_enable_sse4_1(tflac* t, tflac_u32 enable);
+
 
 /* getters for various fields */
 TFLAC_PURE
@@ -549,6 +560,15 @@ tflac_u32 tflac_get_enable_md5(const tflac* t);
 TFLAC_PURE
 TFLAC_PUBLIC
 tflac_u32 tflac_get_enable_sse2(const tflac* t);
+
+TFLAC_PURE
+TFLAC_PUBLIC
+tflac_u32 tflac_get_enable_ssse3(const tflac* t);
+
+TFLAC_PURE
+TFLAC_PUBLIC
+tflac_u32 tflac_get_enable_sse4_1(const tflac* t);
+
 
 #ifdef __cplusplus
 }
@@ -4110,6 +4130,93 @@ tflac_u32 tflac_enable_sse2(tflac* t, tflac_u32 enable) {
     }
     return 0;
 #else
+    (void)t;
+    (void)enable;
+    return 1;
+#endif
+}
+
+TFLAC_PUBLIC
+tflac_u32 tflac_enable_ssse3(tflac* t, tflac_u32 enable) {
+#ifdef TFLAC_ENABLE_SSSE3
+    if(enable) {
+        t->calculate_order[0] = tflac_cfr_order0_ssse3;
+        t->calculate_order[1] = tflac_cfr_order1_ssse3;
+        t->calculate_order[2] = tflac_cfr_order2_ssse3;
+        t->calculate_order[3] = tflac_cfr_order3_ssse3;
+        t->calculate_order[4] = tflac_cfr_order4_ssse3;
+    } else {
+        t->calculate_order[0] = tflac_cfr_order0_std;
+        t->calculate_order[1] = tflac_cfr_order1_std;
+        t->calculate_order[2] = tflac_cfr_order2_std;
+        t->calculate_order[3] = tflac_cfr_order3_std;
+        t->calculate_order[4] = tflac_cfr_order4_std;
+    }
+    switch(t->bitdepth) {
+        case 32: {
+            t->calculate_order[1] = tflac_cfr_order1_wide;
+        }
+        /* fall-through */
+        case 31: {
+            t->calculate_order[2] = tflac_cfr_order2_wide;
+        }
+        /* fall-through */
+        case 30: {
+            t->calculate_order[3] = tflac_cfr_order3_wide;
+        }
+        /* fall-through */
+        case 29: {
+            t->calculate_order[4] = tflac_cfr_order4_wide;
+        }
+        /* fall-through */
+        default: break;
+    }
+    return 0;
+#else
+    (void)t;
+    (void)enable;
+    return 1;
+#endif
+}
+
+TFLAC_PUBLIC
+tflac_u32 tflac_enable_sse4_1(tflac* t, tflac_u32 enable) {
+#ifdef TFLAC_ENABLE_SSE4_1
+    if(enable) {
+        t->calculate_order[0] = tflac_cfr_order0_sse4_1;
+        t->calculate_order[1] = tflac_cfr_order1_sse4_1;
+        t->calculate_order[2] = tflac_cfr_order2_sse4_1;
+        t->calculate_order[3] = tflac_cfr_order3_sse4_1;
+        t->calculate_order[4] = tflac_cfr_order4_sse4_1;
+    } else {
+        t->calculate_order[0] = tflac_cfr_order0_std;
+        t->calculate_order[1] = tflac_cfr_order1_std;
+        t->calculate_order[2] = tflac_cfr_order2_std;
+        t->calculate_order[3] = tflac_cfr_order3_std;
+        t->calculate_order[4] = tflac_cfr_order4_std;
+    }
+    switch(t->bitdepth) {
+        case 32: {
+            t->calculate_order[1] = tflac_cfr_order1_wide;
+        }
+        /* fall-through */
+        case 31: {
+            t->calculate_order[2] = tflac_cfr_order2_wide;
+        }
+        /* fall-through */
+        case 30: {
+            t->calculate_order[3] = tflac_cfr_order3_wide;
+        }
+        /* fall-through */
+        case 29: {
+            t->calculate_order[4] = tflac_cfr_order4_wide;
+        }
+        /* fall-through */
+        default: break;
+    }
+    return 0;
+#else
+    (void)t;
     (void)enable;
     return 1;
 #endif
@@ -4119,6 +4226,25 @@ TFLAC_PURE TFLAC_PUBLIC tflac_u32 tflac_get_enable_sse2(const tflac* t) {
 #ifdef TFLAC_ENABLE_SSE2
     return t->calculate_order[0] == tflac_cfr_order0_sse2;
 #else
+    (void)t;
+    return 0;
+#endif
+}
+
+TFLAC_PURE TFLAC_PUBLIC tflac_u32 tflac_get_enable_ssse3(const tflac* t) {
+#ifdef TFLAC_ENABLE_SSSE3
+    return t->calculate_order[0] == tflac_cfr_order0_ssse3;
+#else
+    (void)t;
+    return 0;
+#endif
+}
+
+TFLAC_PURE TFLAC_PUBLIC tflac_u32 tflac_get_enable_sse4_1(const tflac* t) {
+#ifdef TFLAC_ENABLE_SSE4_1
+    return t->calculate_order[0] == tflac_cfr_order0_sse4_1;
+#else
+    (void)t;
     return 0;
 #endif
 }
@@ -4573,6 +4699,26 @@ void tflac_detect_cpu(void) {
         tflac_cfr_order4 = tflac_cfr_order4_sse2;
     }
 #endif
+
+#ifdef TFLAC_ENABLE_SSSE3
+    if( (info[2] & (1 << 9)) != 0) {
+        tflac_cfr_order0 = tflac_cfr_order0_ssse3;
+        tflac_cfr_order1 = tflac_cfr_order1_ssse3;
+        tflac_cfr_order2 = tflac_cfr_order2_ssse3;
+        tflac_cfr_order3 = tflac_cfr_order3_ssse3;
+        tflac_cfr_order4 = tflac_cfr_order4_ssse3;
+    }
+#endif
+
+#ifdef TFLAC_ENABLE_SSE4_1
+    if( (info[2] & (1 << 19)) != 0) {
+        tflac_cfr_order0 = tflac_cfr_order0_sse4_1;
+        tflac_cfr_order1 = tflac_cfr_order1_sse4_1;
+        tflac_cfr_order2 = tflac_cfr_order2_sse4_1;
+        tflac_cfr_order3 = tflac_cfr_order3_sse4_1;
+        tflac_cfr_order4 = tflac_cfr_order4_sse4_1;
+    }
+#endif
 }
 
 TFLAC_PUBLIC
@@ -4584,6 +4730,52 @@ int tflac_default_sse2(int enable) {
         tflac_cfr_order2 = tflac_cfr_order2_sse2;
         tflac_cfr_order3 = tflac_cfr_order3_sse2;
         tflac_cfr_order4 = tflac_cfr_order4_sse2;
+    } else {
+        tflac_cfr_order0 = tflac_cfr_order0_std;
+        tflac_cfr_order1 = tflac_cfr_order1_std;
+        tflac_cfr_order2 = tflac_cfr_order2_std;
+        tflac_cfr_order3 = tflac_cfr_order3_std;
+        tflac_cfr_order4 = tflac_cfr_order4_std;
+    }
+    return 0;
+#else
+    (void)enable;
+    return 1;
+#endif
+}
+
+TFLAC_PUBLIC
+int tflac_default_ssse3(int enable) {
+#ifdef TFLAC_ENABLE_SSSE3
+    if(enable) {
+        tflac_cfr_order0 = tflac_cfr_order0_ssse3;
+        tflac_cfr_order1 = tflac_cfr_order1_ssse3;
+        tflac_cfr_order2 = tflac_cfr_order2_ssse3;
+        tflac_cfr_order3 = tflac_cfr_order3_ssse3;
+        tflac_cfr_order4 = tflac_cfr_order4_ssse3;
+    } else {
+        tflac_cfr_order0 = tflac_cfr_order0_std;
+        tflac_cfr_order1 = tflac_cfr_order1_std;
+        tflac_cfr_order2 = tflac_cfr_order2_std;
+        tflac_cfr_order3 = tflac_cfr_order3_std;
+        tflac_cfr_order4 = tflac_cfr_order4_std;
+    }
+    return 0;
+#else
+    (void)enable;
+    return 1;
+#endif
+}
+
+TFLAC_PUBLIC
+int tflac_default_sse4_1(int enable) {
+#ifdef TFLAC_ENABLE_SSE4_1
+    if(enable) {
+        tflac_cfr_order0 = tflac_cfr_order0_sse4_1;
+        tflac_cfr_order1 = tflac_cfr_order1_sse4_1;
+        tflac_cfr_order2 = tflac_cfr_order2_sse4_1;
+        tflac_cfr_order3 = tflac_cfr_order3_sse4_1;
+        tflac_cfr_order4 = tflac_cfr_order4_sse4_1;
     } else {
         tflac_cfr_order0 = tflac_cfr_order0_std;
         tflac_cfr_order1 = tflac_cfr_order1_std;

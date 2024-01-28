@@ -111,6 +111,18 @@ int main(int argc, const char *argv[]) {
     tflac_detect_cpu();
     tflac_init(&t);
 
+    printf("CPU feature enabled: ");
+    if(tflac_get_enable_sse2(&t)) {
+        printf("SSE2");
+    } else if(tflac_get_enable_ssse3(&t)) {
+        printf("SSSE3");
+    } else if(tflac_get_enable_sse4_1(&t)) {
+        printf("SSE4.1");
+    } else {
+        printf("none");
+    }
+    printf("\n");
+
     t.samplerate = SAMPLERATE;
     t.channels = CHANNELS;
     t.bitdepth = BITDEPTH;

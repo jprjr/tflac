@@ -469,7 +469,7 @@ int main(void) {
     r |= STANDARD_TEST(4,ssse3)();
 #endif
 
-#ifdef TFLAC_ENABLE_SSE_4_1
+#ifdef TFLAC_ENABLE_SSE4_1
     r |= STANDARD_TEST(0,sse4_1)();
     r |= STANDARD_TEST(1,sse4_1)();
     r |= STANDARD_TEST(2,sse4_1)();
