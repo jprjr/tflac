@@ -3523,12 +3523,7 @@ int tflac_encode_frame_header(tflac *t) {
     unsigned int i = 0;
     tflac_u8 frameno_len = 0;
 
-#ifdef TFLAC_32BIT_ONLY
-    if( (r = tflac_bitwriter_add(&t->bw, 16, t->frame_header >> 16)) != 0) return r;
-    if( (r = tflac_bitwriter_add(&t->bw, 16, t->frame_header)) != 0) return r;
-#else
     if( (r = tflac_bitwriter_add(&t->bw, 32, t->frame_header)) != 0) return r;
-#endif
 
     if(t->frameno < ( (tflac_u32)1 << 7) ) {
         frameno_bytes[0] = t->frameno & 0x7F;
@@ -3678,49 +3673,49 @@ void tflac_init(tflac *t) {
 
 TFLAC_PRIVATE
 void tflac_update_frame_header(tflac *t) {
-    t->frame_header = 0xFFF8U << 16;
+    t->frame_header = UINT32_C(0xFFF8) << 16;
 
     switch(t->cur_blocksize) {
-        case 192:   t->frame_header |= (0x01 << 12); break;
-        case 576:   t->frame_header |= (0x02 << 12); break;
-        case 1152:  t->frame_header |= (0x03 << 12); break;
-        case 2304:  t->frame_header |= (0x04 << 12); break;
-        case 4608:  t->frame_header |= (0x05 << 12); break;
-        case 256:   t->frame_header |= (0x08 << 12); break;
-        case 512:   t->frame_header |= (0x09 << 12); break;
-        case 1024:  t->frame_header |= (0x0A << 12); break;
-        case 2048:  t->frame_header |= (0x0B << 12); break;
-        case 4096:  t->frame_header |= (0x0C << 12); break;
-        case 8192:  t->frame_header |= (0x0D << 12); break;
-        case 16384: t->frame_header |= (0x0E << 12); break;
-        case 32768: t->frame_header |= (0x0F << 12); break;
+        case 192:   t->frame_header |= ( UINT32_C(0x01) << 12); break;
+        case 576:   t->frame_header |= ( UINT32_C(0x02) << 12); break;
+        case 1152:  t->frame_header |= ( UINT32_C(0x03) << 12); break;
+        case 2304:  t->frame_header |= ( UINT32_C(0x04) << 12); break;
+        case 4608:  t->frame_header |= ( UINT32_C(0x05) << 12); break;
+        case 256:   t->frame_header |= ( UINT32_C(0x08) << 12); break;
+        case 512:   t->frame_header |= ( UINT32_C(0x09) << 12); break;
+        case 1024:  t->frame_header |= ( UINT32_C(0x0A) << 12); break;
+        case 2048:  t->frame_header |= ( UINT32_C(0x0B) << 12); break;
+        case 4096:  t->frame_header |= ( UINT32_C(0x0C) << 12); break;
+        case 8192:  t->frame_header |= ( UINT32_C(0x0D) << 12); break;
+        case 16384: t->frame_header |= ( UINT32_C(0x0E) << 12); break;
+        case 32768: t->frame_header |= ( UINT32_C(0x0F) << 12); break;
         default: {
-            t->frame_header |= t->cur_blocksize <= 256 ? (0x06 << 12) : (0x07 << 12);
+            t->frame_header |= t->cur_blocksize <= 256 ? (UINT32_C(0x06) << 12) : (UINT32_C(0x07) << 12);
         }
     }
 
     switch(t->samplerate) {
-        case 882000: t->frame_header |= (0x01 << 8); break;
-        case 176400: t->frame_header |= (0x02 << 8); break;
-        case 192000: t->frame_header |= (0x03 << 8); break;
-        case   8000: t->frame_header |= (0x04 << 8); break;
-        case  16000: t->frame_header |= (0x05 << 8); break;
-        case  22050: t->frame_header |= (0x06 << 8); break;
-        case  24000: t->frame_header |= (0x07 << 8); break;
-        case  32000: t->frame_header |= (0x08 << 8); break;
-        case  44100: t->frame_header |= (0x09 << 8); break;
-        case  48000: t->frame_header |= (0x0A << 8); break;
-        case  96000: t->frame_header |= (0x0B << 8); break;
+        case 882000: t->frame_header |= (UINT32_C(0x01) << 8); break;
+        case 176400: t->frame_header |= (UINT32_C(0x02) << 8); break;
+        case 192000: t->frame_header |= (UINT32_C(0x03) << 8); break;
+        case   8000: t->frame_header |= (UINT32_C(0x04) << 8); break;
+        case  16000: t->frame_header |= (UINT32_C(0x05) << 8); break;
+        case  22050: t->frame_header |= (UINT32_C(0x06) << 8); break;
+        case  24000: t->frame_header |= (UINT32_C(0x07) << 8); break;
+        case  32000: t->frame_header |= (UINT32_C(0x08) << 8); break;
+        case  44100: t->frame_header |= (UINT32_C(0x09) << 8); break;
+        case  48000: t->frame_header |= (UINT32_C(0x0A) << 8); break;
+        case  96000: t->frame_header |= (UINT32_C(0x0B) << 8); break;
         default: {
             if(t->samplerate % 1000 == 0) {
                 if(t->samplerate / 1000 < 256) {
-                    t->frame_header |= (0x0C << 8);
+                    t->frame_header |= (UINT32_C(0x0C) << 8);
                 }
             } else if(t->samplerate < 65536) {
-                t->frame_header |= (0x0D << 8);
+                t->frame_header |= (UINT32_C(0x0D) << 8);
             } else if(t->samplerate % 10 == 0) {
                 if(t->samplerate / 10 < 65536) {
-                    t->frame_header |= (0x0E << 8);
+                    t->frame_header |= (UINT32_C(0x0E) << 8);
                 }
             }
         }
@@ -3729,12 +3724,12 @@ void tflac_update_frame_header(tflac *t) {
     t->frame_header |= (t->channels - 1) << 4;
 
     switch(t->bitdepth) {
-        case 8:  t->frame_header |= (1 << 1); break;
-        case 12: t->frame_header |= (2 << 1); break;
-        case 16: t->frame_header |= (4 << 1); break;
-        case 20: t->frame_header |= (5 << 1); break;
-        case 24: t->frame_header |= (6 << 1); break;
-        case 32: t->frame_header |= (7 << 1); break;
+        case 8:  t->frame_header |= (UINT32_C(1) << 1); break;
+        case 12: t->frame_header |= (UINT32_C(2) << 1); break;
+        case 16: t->frame_header |= (UINT32_C(4) << 1); break;
+        case 20: t->frame_header |= (UINT32_C(5) << 1); break;
+        case 24: t->frame_header |= (UINT32_C(6) << 1); break;
+        case 32: t->frame_header |= (UINT32_C(7) << 1); break;
         default: break;
     }
 }
@@ -3773,7 +3768,7 @@ int tflac_validate(tflac *t, void* ptr, tflac_u32 len) {
     if(len < tflac_size_memory(t->blocksize)) return -1;
 
     p1 = ((tflac_uptr)ptr);
-    p2 = (p1 + 15) & ~(tflac_uptr)0x0F;
+    p2 = (p1 + 15) & ~(tflac_uptr)UINT32_C(0x0F);
 
     p2 -= p1; /* we now have an offset rather than an absolute pointer,
     in case things went sideways with type detecion and tflac_uptr
@@ -3782,7 +3777,7 @@ int tflac_validate(tflac *t, void* ptr, tflac_u32 len) {
     d = (tflac_u8*)ptr;
     d += p2;
 
-    res_len = (15UL + (t->blocksize * 4UL)) & 0xFFFFFFF0UL;
+    res_len = (15UL + (t->blocksize * 4UL)) & UINT32_C(0xFFFFFFF0);
     t->residuals[0] = (tflac_s32*)(&d[(0 * res_len)]);
     t->residuals[1] = (tflac_s32*)(&d[(1 * res_len)]);
     t->residuals[2] = (tflac_s32*)(&d[(2 * res_len)]);
