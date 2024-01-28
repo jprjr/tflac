@@ -296,7 +296,6 @@ typedef uintptr_t tflac_uptr;
 
 #else
 /* we're on an unknown platform! */
-#warning "Unable to detect 64-bit support, falling back to emulated 64-bit"
 #define TFLAC_32BIT_ONLY
 typedef tflac_u32 tflac_uptr;
 #endif
