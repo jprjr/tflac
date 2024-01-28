@@ -136,10 +136,10 @@ Other metadata blocks are out-of-scope, as is writing the "fLaC" stream marker.
 #define TFLAC_SIZE_STREAMINFO 38UL
 #define TFLAC_SIZE_FRAME(blocksize, channels, bitdepth) \
     (18UL + 8UL + \
-      ((blocksize * channels * bitdepth)/8) + \
-      ( !!((blocksize * channels * bitdepth) % 8) ) + \
-      channels)
-#define TFLAC_SIZE_MEMORY(blocksize) (15UL + (5UL * ((15UL + (blocksize * 4UL)) & 0xFFFFFFF0UL)))
+      ((UINT32_C(blocksize) * UINT32_C(channels) * UINT32_C(bitdepth))/UINT32_C(8)) + \
+      ( !!((UINT32_C(blocksize) * UINT32_C(channels) * UINT32_C(bitdepth)) % UINT32_C(8)) ) + \
+      UINT32_C(channels))
+#define TFLAC_SIZE_MEMORY(blocksize) (15UL + (5UL * ((15UL + (UINT32_C(blocksize) * 4UL)) & UINT32_C(0xFFFFFFF0))))
 
 
 #ifdef __cplusplus
