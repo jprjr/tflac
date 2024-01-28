@@ -33,6 +33,8 @@ There's a few compile-time options you can set:
 * Define `TFLAC_32BIT_ONLY` and tflac will not use 64-bit types at all,
 and instead emulate 64-bit types with a pair of 32-bit ints.
 * Define `TFLAC_DISABLE_SSE2` to disable SSE2 detection.
+* Define `TFLAC_DISABLE_SSSE3` to disable SSSE3 detection.
+* Define `TFLAC_DISABLE_SSE4_1` to disable SSE4.1 detection.
 * Define `TFLAC_PUBLIC` if you need to customize function decorators
 for public API functions.
 * Define `TFLAC_PRIVATE` if you need to customize function decorators
@@ -103,9 +105,9 @@ You can have your audio in interleaved or planar format, and as either
 `tflac_s16` or `tflac_s32`. The encode functions are:
 
 * `tflac_encode_s16i`: `tflac_s16` samples in a 1-dimensional array (`tflac_s16*`), interleaved.
-* `tflac_encode_s16p`: `tflac_s16` samples in a 2-dimensional array (`tflac_s16**`).
+* `tflac_encode_s16p`: `tflac_s16` samples in a multi-dimensional array (`tflac_s16**`).
 * `tflac_encode_s32i`: `tflac_int32` samples in a 1-dimensional array (`tflac_int32*`), interleaved.
-* `tflac_encode_s32p`: `tflac_int32` samples in a 2-dimensional array (`tflac_int32**`).
+* `tflac_encode_s32p`: `tflac_int32` samples in a multi-dimensional array (`tflac_int32**`).
 
 `tflac_s16` is a typedef for `int16_t`, and `tflac_s32` is a typedef for `int32_t`
 in most cases.
