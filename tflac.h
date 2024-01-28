@@ -308,12 +308,8 @@ struct tflac_u64 {
     tflac_u32 hi;
 };
 typedef struct tflac_u64 tflac_u64;
+typedef tflac_u64 tflac_s64;
 
-struct tflac_s64 {
-    tflac_u64 v;
-    tflac_u8 sign;
-};
-typedef struct tflac_s64 tflac_s64;
 typedef tflac_u32 tflac_uint;
 #define tflac_pack_uintbe tflac_pack_u32be
 #define tflac_pack_uintle tflac_pack_u32le
@@ -758,52 +754,32 @@ int tflac_u64_cmp_word(const tflac_u64* a, tflac_u32 b) {
 
 TFLAC_PRIVATE TFLAC_INLINE
 void tflac_s64_cast(tflac_s64* s, tflac_s32 v) {
-    if(v < 0) {
-        s->sign = 1;
-        tflac_u64_cast(&s->v, (tflac_u32)-v);
-    } else {
-        s->sign = 0;
-        tflac_u64_cast(&s->v, (tflac_u32)v);
-    }
+    s->hi = (tflac_u32)(v >> 31);
+    s->lo = (tflac_u32)(v);
+}
+
+#define tflac_s64_add(a,b) tflac_u64_add( (tflac_u64*)(a), (const tflac_u64*)(b) )
+
+TFLAC_PRIVATE TFLAC_INLINE
+void tflac_s64_abs(tflac_u64* u, const tflac_s64* a) {
+    const tflac_s32 mask = ((tflac_s32)a->hi) >> 31;
+    tflac_u32 carry;
+
+    carry = (u->lo = (a->lo ^ mask) - mask) < a->lo;
+    u->hi = (a->hi ^ mask) - mask - carry;
 }
 
 TFLAC_PRIVATE TFLAC_INLINE
-void tflac_s64_add(tflac_s64* a, const tflac_s64* b) {
-    int cmp;
-    tflac_s64 c;
-    if(a->sign == b->sign) {
-        tflac_u64_add(&a->v, &b->v);
-        return;
-    }
-
-    cmp = tflac_u64_cmp(&a->v, &b->v);
-    if(cmp > 0) {
-        tflac_u64_sub(&a->v, &b->v);
-        return;
-    }
-    c.v = b->v;
-    tflac_u64_sub(&c.v,&a->v);
-    a->v = c.v;
-    a->sign = b->sign;
+void tflac_s64_neg(tflac_s64* s) {
+    s->hi = ~s->hi;
+    s->lo = ~s->lo;
+    s->hi += (s->lo += 1) == 0;
 }
 
-TFLAC_PRIVATE TFLAC_INLINE
-void tflac_s64_sub(tflac_s64* a, const tflac_s64* b) {
-    tflac_s64 c;
-    c.v = b->v;
-    c.sign = !b->sign;
-    tflac_s64_add(a,&c);
-}
-
-TFLAC_PRIVATE TFLAC_INLINE
-void tflac_s64_abs(tflac_u64* u, const tflac_s64* s) {
-    u->lo = s->v.lo;
-    u->hi = s->v.hi;
-}
 
 TFLAC_PRIVATE TFLAC_INLINE
 void tflac_s64_cast32(tflac_s32* d, const tflac_s64* s) {
-    *d = s->sign ? -(tflac_s32)s->v.lo : (tflac_s32)s->v.lo;
+    *d = s->lo;
 }
 
 
@@ -821,8 +797,8 @@ void tflac_s64_cast32(tflac_s32* d, const tflac_s64* s) {
 #define TFLAC_U64_EQ_WORD(x,y) (tflac_u64_cmp_word(&(x),y) == 0)
 
 #define TFLAC_S64_CAST(x,y) (tflac_s64_cast(&(x),(tflac_s32)(y)))
+#define TFLAC_S64_NEG(x) (tflac_s64_neg(&(x)))
 #define TFLAC_S64_ADD(x,y) (tflac_s64_add(&(x),&(y)))
-#define TFLAC_S64_SUB(x,y) (tflac_s64_sub(&(x),&(y)))
 #define TFLAC_S64_ABS(x,y) (tflac_s64_abs(&(x),&(y)))
 #define TFLAC_S64_CAST32(x,y) (tflac_s64_cast32( &(x), &(y) ))
 
@@ -856,7 +832,6 @@ tflac_s64 tflac_s64_abs(tflac_s64 v) {
 
 #define TFLAC_S64_CAST(x,y) ( (x) = (tflac_s64)(y) )
 #define TFLAC_S64_ADD(x,y) ( (x) += (y) )
-#define TFLAC_S64_SUB(x,y) ( (x) -= (y) )
 #define TFLAC_S64_ABS(x,y) ( (x) = (tflac_u64)(tflac_s64_abs((y))) )
 #define TFLAC_S64_CAST32(x,y) ( (x) = (tflac_s32)(y) )
 
@@ -3118,21 +3093,29 @@ TFLAC_PRIVATE void tflac_cfr_order1_wide_std(
         TFLAC_S64_CAST(sample0,samples[i]);
         TFLAC_S64_CAST(sample1,samples[i-1]);
 
-        TFLAC_S64_SUB(sample0,sample1);
+#ifdef TFLAC_32BIT_ONLY
+        TFLAC_S64_NEG(sample1);
+        TFLAC_S64_ADD(sample0,sample1);
+#else
+        sample0 = sample0 - sample1;
+#endif
 
         TFLAC_S64_ABS(residual_abs,sample0);
 
         max_found |= TFLAC_U64_GT_WORD(residual_abs,INT32_MAX);
-
         TFLAC_S64_CAST32(residuals[i], sample0);
-
     }
 
     for(i=4;i<blocksize;i++) {
         TFLAC_S64_CAST(sample0,samples[i]);
         TFLAC_S64_CAST(sample1,samples[i-1]);
 
-        TFLAC_S64_SUB(sample0,sample1);
+#ifdef TFLAC_32BIT_ONLY
+        TFLAC_S64_NEG(sample1);
+        TFLAC_S64_ADD(sample0,sample1);
+#else
+        sample0 = sample0 - sample1;
+#endif
 
         TFLAC_S64_ABS(residual_abs,sample0);
         max_found |= TFLAC_U64_GT_WORD(residual_abs,INT32_MAX);
@@ -3173,8 +3156,9 @@ TFLAC_PRIVATE void tflac_cfr_order2_wide_std(
         TFLAC_S64_CAST(sample2,samples[i-2]);
 
 #ifdef TFLAC_32BIT_ONLY
-        TFLAC_S64_SUB(sample0,sample1);
-        TFLAC_S64_SUB(sample0,sample1);
+        TFLAC_S64_NEG(sample1);
+        TFLAC_S64_ADD(sample0,sample1);
+        TFLAC_S64_ADD(sample0,sample1);
         TFLAC_S64_ADD(sample0,sample2);
 #else
         sample0 = sample0 - ( 2 * sample1 ) - (-1 * sample2 );
@@ -3191,8 +3175,9 @@ TFLAC_PRIVATE void tflac_cfr_order2_wide_std(
         TFLAC_S64_CAST(sample2,samples[i-2]);
 
 #ifdef TFLAC_32BIT_ONLY
-        TFLAC_S64_SUB(sample0,sample1);
-        TFLAC_S64_SUB(sample0,sample1);
+        TFLAC_S64_NEG(sample1);
+        TFLAC_S64_ADD(sample0,sample1);
+        TFLAC_S64_ADD(sample0,sample1);
         TFLAC_S64_ADD(sample0,sample2);
 #else
         sample0 = sample0 - ( 2 * sample1 ) - (-1 * sample2 );
@@ -3240,13 +3225,15 @@ TFLAC_PRIVATE void tflac_cfr_order3_wide_std(
         TFLAC_S64_CAST(sample3,samples[i-3]);
 
 #ifdef TFLAC_32BIT_ONLY
-        TFLAC_S64_SUB(sample0,sample1);
-        TFLAC_S64_SUB(sample0,sample1);
-        TFLAC_S64_SUB(sample0,sample1);
+        TFLAC_S64_NEG(sample1);
+        TFLAC_S64_NEG(sample3);
+        TFLAC_S64_ADD(sample0,sample1);
+        TFLAC_S64_ADD(sample0,sample1);
+        TFLAC_S64_ADD(sample0,sample1);
         TFLAC_S64_ADD(sample0,sample2);
         TFLAC_S64_ADD(sample0,sample2);
         TFLAC_S64_ADD(sample0,sample2);
-        TFLAC_S64_SUB(sample0,sample3);
+        TFLAC_S64_ADD(sample0,sample3);
 #else
         sample0 = sample0 - ( 3 * sample1 ) - (-3 * sample2 ) - sample3;
 #endif
@@ -3264,13 +3251,15 @@ TFLAC_PRIVATE void tflac_cfr_order3_wide_std(
         TFLAC_S64_CAST(sample3,samples[i-3]);
 
 #ifdef TFLAC_32BIT_ONLY
-        TFLAC_S64_SUB(sample0,sample1);
-        TFLAC_S64_SUB(sample0,sample1);
-        TFLAC_S64_SUB(sample0,sample1);
+        TFLAC_S64_NEG(sample1);
+        TFLAC_S64_NEG(sample3);
+        TFLAC_S64_ADD(sample0,sample1);
+        TFLAC_S64_ADD(sample0,sample1);
+        TFLAC_S64_ADD(sample0,sample1);
         TFLAC_S64_ADD(sample0,sample2);
         TFLAC_S64_ADD(sample0,sample2);
         TFLAC_S64_ADD(sample0,sample2);
-        TFLAC_S64_SUB(sample0,sample3);
+        TFLAC_S64_ADD(sample0,sample3);
 #else
         sample0 = sample0 - ( 3 * sample1 ) - (-3 * sample2 ) - sample3;
 #endif
@@ -3321,10 +3310,13 @@ TFLAC_PRIVATE void tflac_cfr_order4_wide_std(
         TFLAC_S64_CAST(sample4,samples[i-4]);
 
 #ifdef TFLAC_32BIT_ONLY
-        TFLAC_S64_SUB(sample0,sample1);
-        TFLAC_S64_SUB(sample0,sample1);
-        TFLAC_S64_SUB(sample0,sample1);
-        TFLAC_S64_SUB(sample0,sample1);
+        TFLAC_S64_NEG(sample1);
+        TFLAC_S64_NEG(sample3);
+
+        TFLAC_S64_ADD(sample0,sample1);
+        TFLAC_S64_ADD(sample0,sample1);
+        TFLAC_S64_ADD(sample0,sample1);
+        TFLAC_S64_ADD(sample0,sample1);
 
         TFLAC_S64_ADD(sample0,sample2);
         TFLAC_S64_ADD(sample0,sample2);
@@ -3333,10 +3325,10 @@ TFLAC_PRIVATE void tflac_cfr_order4_wide_std(
         TFLAC_S64_ADD(sample0,sample2);
         TFLAC_S64_ADD(sample0,sample2);
 
-        TFLAC_S64_SUB(sample0,sample3);
-        TFLAC_S64_SUB(sample0,sample3);
-        TFLAC_S64_SUB(sample0,sample3);
-        TFLAC_S64_SUB(sample0,sample3);
+        TFLAC_S64_ADD(sample0,sample3);
+        TFLAC_S64_ADD(sample0,sample3);
+        TFLAC_S64_ADD(sample0,sample3);
+        TFLAC_S64_ADD(sample0,sample3);
 
         TFLAC_S64_ADD(sample0,sample4);
 #else
