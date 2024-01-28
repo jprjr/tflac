@@ -316,10 +316,12 @@ struct tflac_s64 {
 };
 typedef struct tflac_s64 tflac_s64;
 typedef tflac_u32 tflac_uint;
-#define tflac_pack_uint tflac_pack_u32be
+#define tflac_pack_uintbe tflac_pack_u32be
+#define tflac_pack_uintle tflac_pack_u32le
 #else
 typedef tflac_u64 tflac_uint;
-#define tflac_pack_uint tflac_pack_u64be
+#define tflac_pack_uintbe tflac_pack_u64be
+#define tflac_pack_uintle tflac_pack_u64le
 #endif
 
 enum TFLAC_SUBFRAME_TYPE {
@@ -349,7 +351,7 @@ struct tflac_md5 {
     tflac_u32 d;
     tflac_u32 pos;
     tflac_u64 total;
-    tflac_u8 buffer[64];
+    tflac_u8 buffer[64+8];
 };
 
 typedef struct tflac_md5 tflac_md5;
@@ -588,6 +590,14 @@ tflac_u32 tflac_get_enable_sse2(const tflac* t);
 #define TFLAC_UNLIKELY(x) __builtin_expect(!!(x),0)
 #else
 #define TFLAC_UNLIKELY(x) (!!(x))
+#endif
+#endif
+
+#ifndef TFLAC_LIKELY
+#if defined(__GNUC__) && __GNUC__ >= 3
+#define TFLAC_LIKELY(x) __builtin_expect(!!(x),1)
+#else
+#define TFLAC_LIKELY(x) (!!(x))
 #endif
 #endif
 
@@ -1014,7 +1024,7 @@ void tflac_md5_transform(tflac_md5* m);
 
 TFLAC_PRIVATE
 TFLAC_INLINE
-void tflac_md5_addsample(tflac_md5* m, tflac_u32 bits, tflac_u32 val);
+void tflac_md5_addsample(tflac_md5* m, tflac_u32 bits, tflac_uint val);
 
 TFLAC_PRIVATE
 TFLAC_INLINE
@@ -1312,34 +1322,6 @@ TFLAC_PRIVATE TFLAC_INLINE tflac_u16 tflac_crc16(const tflac_u8* d, tflac_u32 le
     return crc16;
 }
 
-TFLAC_PRIVATE
-const tflac_u32 tflac_md5_K[64] = {
-    0xd76aa478, 0xe8c7b756, 0x242070db, 0xc1bdceee,
-    0xf57c0faf, 0x4787c62a, 0xa8304613, 0xfd469501,
-    0x698098d8, 0x8b44f7af, 0xffff5bb1, 0x895cd7be,
-    0x6b901122, 0xfd987193, 0xa679438e, 0x49b40821,
-    0xf61e2562, 0xc040b340, 0x265e5a51, 0xe9b6c7aa,
-    0xd62f105d, 0x02441453, 0xd8a1e681, 0xe7d3fbc8,
-    0x21e1cde6, 0xc33707d6, 0xf4d50d87, 0x455a14ed,
-    0xa9e3e905, 0xfcefa3f8, 0x676f02d9, 0x8d2a4c8a,
-    0xfffa3942, 0x8771f681, 0x6d9d6122, 0xfde5380c,
-    0xa4beea44, 0x4bdecfa9, 0xf6bb4b60, 0xbebfbc70,
-    0x289b7ec6, 0xeaa127fa, 0xd4ef3085, 0x04881d05,
-    0xd9d4d039, 0xe6db99e5, 0x1fa27cf8, 0xc4ac5665,
-    0xf4292244, 0x432aff97, 0xab9423a7, 0xfc93a039,
-    0x655b59c3, 0x8f0ccc92, 0xffeff47d, 0x85845dd1,
-    0x6fa87e4f, 0xfe2ce6e0, 0xa3014314, 0x4e0811a1,
-    0xf7537e82, 0xbd3af235, 0x2ad7d2bb, 0xeb86d391,
-};
-
-TFLAC_PRIVATE
-const tflac_u8 tflac_md5_s[64] = {
-    7, 12, 17, 22,  7, 12, 17, 22,  7, 12, 17, 22,  7, 12, 17, 22,
-    5,  9, 14, 20,  5,  9, 14, 20,  5,  9, 14, 20,  5,  9, 14, 20,
-    4, 11, 16, 23,  4, 11, 16, 23,  4, 11, 16, 23,  4, 11, 16, 23,
-    6, 10, 15, 21,  6, 10, 15, 21,  6, 10, 15, 21,  6, 10, 15, 21,
-};
-
 TFLAC_CONST TFLAC_PRIVATE TFLAC_INLINE
 tflac_u32 tflac_wasted_bits_int16(tflac_s16 sample) {
 #if defined(_MSC_VER) && _MSC_VER >= 1400
@@ -1413,7 +1395,7 @@ int tflac_bitwriter_flush(tflac_bitwriter* bw) {
 
     if(bytes > bw->len - bw->pos) return -1;
 
-    tflac_pack_uint(&bw->buffer[bw->pos],bw->val);
+    tflac_pack_uintbe(&bw->buffer[bw->pos],bw->val);
 
     bw->pos += bytes;
     bw->bits = bits;
@@ -1437,12 +1419,12 @@ int tflac_bitwriter_zeroes(tflac_bitwriter* bw, tflac_u32 bits) {
 
     if(bytes > bw->len - bw->pos) return -1;
 
-    tflac_pack_uint(&bw->buffer[bw->pos],bw->val);
+    tflac_pack_uintbe(&bw->buffer[bw->pos],bw->val);
 
     while(bytes >= sizeof(tflac_uint)) {
         bw->pos += (tflac_u32)sizeof(tflac_uint);
         bytes   -= (tflac_u32)sizeof(tflac_uint);
-        tflac_pack_uint(&bw->buffer[bw->pos],0);
+        tflac_pack_uintbe(&bw->buffer[bw->pos],0);
     }
 
     bw->pos += bytes;
@@ -1512,104 +1494,140 @@ void tflac_md5_transform(tflac_md5* m) {
     tflac_u32 D = m->d;
 
     tflac_u32 F = 0;
-    tflac_u32 g = 0;
-    tflac_u32 i = 0;
 
     tflac_u32 M[16];
 
-    M[0]  = tflac_unpack_u32le(&m->buffer[0  * 4]);
-    M[1]  = tflac_unpack_u32le(&m->buffer[1  * 4]);
-    M[2]  = tflac_unpack_u32le(&m->buffer[2  * 4]);
-    M[3]  = tflac_unpack_u32le(&m->buffer[3  * 4]);
-    M[4]  = tflac_unpack_u32le(&m->buffer[4  * 4]);
-    M[5]  = tflac_unpack_u32le(&m->buffer[5  * 4]);
-    M[6]  = tflac_unpack_u32le(&m->buffer[6  * 4]);
-    M[7]  = tflac_unpack_u32le(&m->buffer[7  * 4]);
-    M[8]  = tflac_unpack_u32le(&m->buffer[8  * 4]);
-    M[9]  = tflac_unpack_u32le(&m->buffer[9  * 4]);
-    M[10] = tflac_unpack_u32le(&m->buffer[10  * 4]);
-    M[11] = tflac_unpack_u32le(&m->buffer[11  * 4]);
-    M[12] = tflac_unpack_u32le(&m->buffer[12  * 4]);
-    M[13] = tflac_unpack_u32le(&m->buffer[13  * 4]);
-    M[14] = tflac_unpack_u32le(&m->buffer[14  * 4]);
-    M[15] = tflac_unpack_u32le(&m->buffer[15  * 4]);
+    M[0]  = tflac_unpack_u32le(&m->buffer[  (0  * 4) ]);
+    M[1]  = tflac_unpack_u32le(&m->buffer[  (1  * 4) ]);
+    M[2]  = tflac_unpack_u32le(&m->buffer[  (2  * 4) ]);
+    M[3]  = tflac_unpack_u32le(&m->buffer[  (3  * 4) ]);
+    M[4]  = tflac_unpack_u32le(&m->buffer[  (4  * 4) ]);
+    M[5]  = tflac_unpack_u32le(&m->buffer[  (5  * 4) ]);
+    M[6]  = tflac_unpack_u32le(&m->buffer[  (6  * 4) ]);
+    M[7]  = tflac_unpack_u32le(&m->buffer[  (7  * 4) ]);
+    M[8]  = tflac_unpack_u32le(&m->buffer[  (8  * 4) ]);
+    M[9]  = tflac_unpack_u32le(&m->buffer[  (9  * 4) ]);
+    M[10] = tflac_unpack_u32le(&m->buffer[ (10  * 4) ]);
+    M[11] = tflac_unpack_u32le(&m->buffer[ (11  * 4) ]);
+    M[12] = tflac_unpack_u32le(&m->buffer[ (12  * 4) ]);
+    M[13] = tflac_unpack_u32le(&m->buffer[ (13  * 4) ]);
+    M[14] = tflac_unpack_u32le(&m->buffer[ (14  * 4) ]);
+    M[15] = tflac_unpack_u32le(&m->buffer[ (15  * 4) ]);
 
 
-    while(i < 16) {
-        F = (B & C) | ( (~B) & D);
-        g = i;
+#define TFLAC_MD5_TRANSFORM_TAIL(g, s, k, expr) \
+        F = A + k + M[g] + (expr); \
+        A = D; \
+        D = C; \
+        C = B; \
+        B += TFLAC_MD5_LEFTROTATE(F, s);
 
-        F += A + tflac_md5_K[i] + M[g];
-        A = D;
-        D = C;
-        C = B;
-        B = B + TFLAC_MD5_LEFTROTATE(F, tflac_md5_s[i]);
+#define TFLAC_MD5_ROUND1(g,s,k) \
+        TFLAC_MD5_TRANSFORM_TAIL(g, s, k, D ^ (B & (C ^ D)))
 
-        i++;
-    }
-    while(i < 32) {
-        F = (D & B) | ( (~D) & C);
-        g = ( (5*i) + 1) % 16;
+#define TFLAC_MD5_ROUND2(g,s,k) \
+        TFLAC_MD5_TRANSFORM_TAIL(g, s, k, C ^ (D & (B ^ C)))
 
-        F += A + tflac_md5_K[i] + M[g];
-        A = D;
-        D = C;
-        C = B;
-        B = B + TFLAC_MD5_LEFTROTATE(F, tflac_md5_s[i]);
+#define TFLAC_MD5_ROUND3(g,s,k) \
+        TFLAC_MD5_TRANSFORM_TAIL(g, s, k, B ^ C ^ D)
 
-        i++;
-    }
-    while(i<48) {
-        F = B ^ C ^ D;
-        g = ( (3*i) + 5) % 16;
+#define TFLAC_MD5_ROUND4(g,s,k) \
+        TFLAC_MD5_TRANSFORM_TAIL(g, s, k, C ^ (B | (~D) ) )
 
-        F += A + tflac_md5_K[i] + M[g];
-        A = D;
-        D = C;
-        C = B;
-        B = B + TFLAC_MD5_LEFTROTATE(F, tflac_md5_s[i]);
+    TFLAC_MD5_ROUND1( 0,  7, UINT32_C(0x0d76aa478))
+    TFLAC_MD5_ROUND1( 1, 12, UINT32_C(0x0e8c7b756))
+    TFLAC_MD5_ROUND1( 2, 17, UINT32_C(0x0242070db))
+    TFLAC_MD5_ROUND1( 3, 22, UINT32_C(0x0c1bdceee))
+    TFLAC_MD5_ROUND1( 4,  7, UINT32_C(0x0f57c0faf))
+    TFLAC_MD5_ROUND1( 5, 12, UINT32_C(0x04787c62a))
+    TFLAC_MD5_ROUND1( 6, 17, UINT32_C(0x0a8304613))
+    TFLAC_MD5_ROUND1( 7, 22, UINT32_C(0x0fd469501))
+    TFLAC_MD5_ROUND1( 8,  7, UINT32_C(0x0698098d8))
+    TFLAC_MD5_ROUND1( 9, 12, UINT32_C(0x08b44f7af))
+    TFLAC_MD5_ROUND1(10, 17, UINT32_C(0x0ffff5bb1))
+    TFLAC_MD5_ROUND1(11, 22, UINT32_C(0x0895cd7be))
+    TFLAC_MD5_ROUND1(12,  7, UINT32_C(0x06b901122))
+    TFLAC_MD5_ROUND1(13, 12, UINT32_C(0x0fd987193))
+    TFLAC_MD5_ROUND1(14, 17, UINT32_C(0x0a679438e))
+    TFLAC_MD5_ROUND1(15, 22, UINT32_C(0x049b40821))
 
-        i++;
-    }
-    while(i<64) {
-        F = C ^ (B | (~D) );
-        g = (7 * i) % 16;
+    TFLAC_MD5_ROUND2( 1,  5, UINT32_C(0x0f61e2562))
+    TFLAC_MD5_ROUND2( 6,  9, UINT32_C(0x0c040b340))
+    TFLAC_MD5_ROUND2(11, 14, UINT32_C(0x0265e5a51))
+    TFLAC_MD5_ROUND2( 0, 20, UINT32_C(0x0e9b6c7aa))
+    TFLAC_MD5_ROUND2( 5,  5, UINT32_C(0x0d62f105d))
+    TFLAC_MD5_ROUND2(10,  9, UINT32_C(0x002441453))
+    TFLAC_MD5_ROUND2(15, 14, UINT32_C(0x0d8a1e681))
+    TFLAC_MD5_ROUND2( 4, 20, UINT32_C(0x0e7d3fbc8))
+    TFLAC_MD5_ROUND2( 9,  5, UINT32_C(0x021e1cde6))
+    TFLAC_MD5_ROUND2(14,  9, UINT32_C(0x0c33707d6))
+    TFLAC_MD5_ROUND2( 3, 14, UINT32_C(0x0f4d50d87))
+    TFLAC_MD5_ROUND2( 8, 20, UINT32_C(0x0455a14ed))
+    TFLAC_MD5_ROUND2(13,  5, UINT32_C(0x0a9e3e905))
+    TFLAC_MD5_ROUND2( 2,  9, UINT32_C(0x0fcefa3f8))
+    TFLAC_MD5_ROUND2( 7, 14, UINT32_C(0x0676f02d9))
+    TFLAC_MD5_ROUND2(12, 20, UINT32_C(0x08d2a4c8a))
 
-        F += A + tflac_md5_K[i] + M[g];
-        A = D;
-        D = C;
-        C = B;
-        B = B + TFLAC_MD5_LEFTROTATE(F, tflac_md5_s[i]);
+    TFLAC_MD5_ROUND3( 5,  4, UINT32_C(0x0fffa3942))
+    TFLAC_MD5_ROUND3( 8, 11, UINT32_C(0x08771f681))
+    TFLAC_MD5_ROUND3(11, 16, UINT32_C(0x06d9d6122))
+    TFLAC_MD5_ROUND3(14, 23, UINT32_C(0x0fde5380c))
+    TFLAC_MD5_ROUND3( 1,  4, UINT32_C(0x0a4beea44))
+    TFLAC_MD5_ROUND3( 4, 11, UINT32_C(0x04bdecfa9))
+    TFLAC_MD5_ROUND3( 7, 16, UINT32_C(0x0f6bb4b60))
+    TFLAC_MD5_ROUND3(10, 23, UINT32_C(0x0bebfbc70))
+    TFLAC_MD5_ROUND3(13,  4, UINT32_C(0x0289b7ec6))
+    TFLAC_MD5_ROUND3( 0, 11, UINT32_C(0x0eaa127fa))
+    TFLAC_MD5_ROUND3( 3, 16, UINT32_C(0x0d4ef3085))
+    TFLAC_MD5_ROUND3( 6, 23, UINT32_C(0x004881d05))
+    TFLAC_MD5_ROUND3( 9,  4, UINT32_C(0x0d9d4d039))
+    TFLAC_MD5_ROUND3(12, 11, UINT32_C(0x0e6db99e5))
+    TFLAC_MD5_ROUND3(15, 16, UINT32_C(0x01fa27cf8))
+    TFLAC_MD5_ROUND3( 2, 23, UINT32_C(0x0c4ac5665))
 
-        i++;
-    }
+    TFLAC_MD5_ROUND4( 0,  6, UINT32_C(0x0f4292244))
+    TFLAC_MD5_ROUND4( 7, 10, UINT32_C(0x0432aff97))
+    TFLAC_MD5_ROUND4(14, 15, UINT32_C(0x0ab9423a7))
+    TFLAC_MD5_ROUND4( 5, 21, UINT32_C(0x0fc93a039))
+    TFLAC_MD5_ROUND4(12,  6, UINT32_C(0x0655b59c3))
+    TFLAC_MD5_ROUND4( 3, 10, UINT32_C(0x08f0ccc92))
+    TFLAC_MD5_ROUND4(10, 15, UINT32_C(0x0ffeff47d))
+    TFLAC_MD5_ROUND4( 1, 21, UINT32_C(0x085845dd1))
+    TFLAC_MD5_ROUND4( 8,  6, UINT32_C(0x06fa87e4f))
+    TFLAC_MD5_ROUND4(15, 10, UINT32_C(0x0fe2ce6e0))
+    TFLAC_MD5_ROUND4( 6, 15, UINT32_C(0x0a3014314))
+    TFLAC_MD5_ROUND4(13, 21, UINT32_C(0x04e0811a1))
+    TFLAC_MD5_ROUND4( 4,  6, UINT32_C(0x0f7537e82))
+    TFLAC_MD5_ROUND4(11, 10, UINT32_C(0x0bd3af235))
+    TFLAC_MD5_ROUND4( 2, 15, UINT32_C(0x02ad7d2bb))
+    TFLAC_MD5_ROUND4( 9, 21, UINT32_C(0x0eb86d391))
+
 
     m->a += A;
     m->b += B;
     m->c += C;
     m->d += D;
-
-    m->pos = 0;
 }
 
 TFLAC_PRIVATE
 TFLAC_INLINE
-void tflac_md5_addsample(tflac_md5* m, tflac_u32 bits, tflac_u32 val) {
-    /* ensure bits are aligned on a byte */
-    tflac_u8 byte;
-    bits = (7 + bits) & 0xF8;
+void tflac_md5_addsample(tflac_md5* m, tflac_u32 bits, tflac_uint val) {
+    tflac_u32 bytes;
 
     TFLAC_U64_ADD_WORD(m->total,bits);
 
-    while(bits) {
-        byte = (tflac_u8)val;
-        m->buffer[m->pos++] = byte;
-        if(m->pos == 64) {
-            tflac_md5_transform(m);
-        }
+    bytes = bits / 8;
 
-        bits -= 8;
-        val >>= 8;
+    tflac_pack_uintle(&m->buffer[m->pos], val);
+    m->pos += bytes;
+
+    if(m->pos >= 64) {
+        tflac_md5_transform(m);
+        m->pos %= 64;
+        bytes = m->pos;
+        while(bytes--) {
+            m->buffer[bytes] = m->buffer[64+bytes];
+        }
     }
 }
 
@@ -1697,41 +1715,172 @@ TFLAC_PRIVATE TFLAC_INLINE void tflac_rescale_samples(tflac* t) {
     return;
 }
 
-TFLAC_PRIVATE void tflac_update_md5_int16_planar(tflac* t, const tflac_s16** samples) {
-    tflac_u32 i = 0;
-    tflac_u32 c = 0;
+/* versions of the md5_interleaved that pack samples before calling addsample */
 
-    for(i=0;i<t->cur_blocksize;i++) {
-        for(c=0;i<t->channels;c++) {
-            tflac_md5_addsample(&t->md5_ctx,t->bitdepth,(tflac_u32)samples[c][i]);
-        }
+/* used with 1-byte input */
+TFLAC_PRIVATE void tflac_update_md5_s16i_1(tflac* t, const tflac_s16* samples) {
+    tflac_u32 b = t->cur_blocksize * t->channels;
+    const tflac_u32 step = sizeof(tflac_uint);
+    tflac_uint v;
+
+    while(b >= step) {
+        v  = (((tflac_uint)samples[0]) & 0xFF) << 0;
+        v |= (((tflac_uint)samples[1]) & 0xFF) << 8;
+        v |= (((tflac_uint)samples[2]) & 0xFF) << 16;
+        v |= (((tflac_uint)samples[3]) & 0xFF) << 24;
+#ifndef TFLAC_32BIT_ONLY
+        v |= (((tflac_uint)samples[4]) & 0xFF) << 32;
+        v |= (((tflac_uint)samples[5]) & 0xFF) << 40;
+        v |= (((tflac_uint)samples[6]) & 0xFF) << 48;
+        v |= (((tflac_uint)samples[7]) & 0xFF) << 56;
+#endif
+        tflac_md5_addsample(&t->md5_ctx, TFLAC_BW_BITS, v);
+
+        b -= step;
+        samples += step;
+    }
+
+    while(b--) {
+        tflac_md5_addsample(&t->md5_ctx, 8, (tflac_uint)*samples++);
     }
 }
 
-TFLAC_PRIVATE void tflac_update_md5_int16_interleaved(tflac* t, const tflac_s16* samples) {
-    tflac_u32 i = 0;
+TFLAC_PRIVATE void tflac_update_md5_s16i_2(tflac* t, const tflac_s16* samples) {
+    tflac_u32 b = t->cur_blocksize * t->channels;
+    const tflac_u32 step = (sizeof(tflac_uint)/2);
+    tflac_uint v;
 
-    for(i=0;i<t->cur_blocksize * t->channels;i++) {
-        tflac_md5_addsample(&t->md5_ctx,t->bitdepth,(tflac_u32)samples[i]);
+    while(b >= step) {
+        v  = (((tflac_uint)samples[0]) & 0xFFFF) << 0;
+        v |= (((tflac_uint)samples[1]) & 0xFFFF) << 16;
+#ifndef TFLAC_32BIT_ONLY
+        v |= (((tflac_uint)samples[2]) & 0xFFFF) << 32;
+        v |= (((tflac_uint)samples[3]) & 0xFFFF) << 48;
+#endif
+        tflac_md5_addsample(&t->md5_ctx, TFLAC_BW_BITS, v);
+
+        b -= step;
+        samples += step;
+    }
+
+    while(b--) {
+        tflac_md5_addsample(&t->md5_ctx, 16, (tflac_uint)*samples++);
+    }
+}
+
+TFLAC_PRIVATE void tflac_update_md5_s32i_1(tflac* t, const tflac_s32* samples) {
+    tflac_u32 b = t->cur_blocksize * t->channels;
+    const tflac_u32 step = sizeof(tflac_uint);
+    tflac_uint v;
+
+    while(b >= step) {
+        v  = (((tflac_uint)samples[0]) & 0xFF) << 0;
+        v |= (((tflac_uint)samples[1]) & 0xFF) << 8;
+        v |= (((tflac_uint)samples[2]) & 0xFF) << 16;
+        v |= (((tflac_uint)samples[3]) & 0xFF) << 24;
+#ifndef TFLAC_32BIT_ONLY
+        v |= (((tflac_uint)samples[4]) & 0xFF) << 32;
+        v |= (((tflac_uint)samples[5]) & 0xFF) << 40;
+        v |= (((tflac_uint)samples[6]) & 0xFF) << 48;
+        v |= (((tflac_uint)samples[7]) & 0xFF) << 56;
+#endif
+        tflac_md5_addsample(&t->md5_ctx, TFLAC_BW_BITS, v);
+
+        b -= step;
+        samples += step;
+    }
+
+    while(b--) {
+        tflac_md5_addsample(&t->md5_ctx, 8, (tflac_uint)*samples++);
+    }
+}
+
+TFLAC_PRIVATE void tflac_update_md5_s32i_2(tflac* t, const tflac_s32* samples) {
+    tflac_u32 b = t->cur_blocksize * t->channels;
+    const tflac_u32 step = (sizeof(tflac_uint)/2);
+    tflac_uint v;
+
+    while(b >= step) {
+        v  = (((tflac_uint)samples[0]) & 0xFFFF) << 0;
+        v |= (((tflac_uint)samples[1]) & 0xFFFF) << 16;
+#ifndef TFLAC_32BIT_ONLY
+        v |= (((tflac_uint)samples[2]) & 0xFFFF) << 32;
+        v |= (((tflac_uint)samples[3]) & 0xFFFF) << 48;
+#endif
+        tflac_md5_addsample(&t->md5_ctx, TFLAC_BW_BITS, v);
+
+        b -= step;
+        samples += step;
+    }
+
+    while(b--) {
+        tflac_md5_addsample(&t->md5_ctx, 16, (tflac_uint)*samples++);
+    }
+}
+
+TFLAC_PRIVATE void tflac_update_md5_s32i_3(tflac* t, const tflac_s32* samples) {
+    tflac_u32 b = t->cur_blocksize * t->channels;
+
+#ifndef TFLAC_32BIT_ONLY
+    tflac_uint v;
+
+    while(b >= 2) {
+        v  = (((tflac_uint)samples[0]) & 0xFFFFFF) << 0;
+        v |= (((tflac_uint)samples[1]) & 0xFFFFFF) << 24;
+        tflac_md5_addsample(&t->md5_ctx, 48, v);
+
+        b -= 2;
+        samples += 2;
+    }
+#endif
+
+    while(b--) {
+        tflac_md5_addsample(&t->md5_ctx, 24,  (tflac_uint) *samples++);
+    }
+}
+
+TFLAC_PRIVATE void tflac_update_md5_s32i_4(tflac* t, const tflac_s32* samples) {
+    tflac_u32 b = t->cur_blocksize * t->channels;
+
+#ifndef TFLAC_32BIT_ONLY
+    tflac_uint v;
+
+    while(b >= 2) {
+        v  = (((tflac_uint)samples[0]) & UINT32_C(0xFFFFFFFF)) << 0;
+        v |= (((tflac_uint)samples[1]) & UINT32_C(0xFFFFFFFF)) << 32;
+        tflac_md5_addsample(&t->md5_ctx, 64, v);
+
+        b -= 2;
+        samples += 2;
+    }
+#endif
+
+    while(b--) {
+        tflac_md5_addsample(&t->md5_ctx, 32, (tflac_uint) *samples++);
+    }
+}
+
+TFLAC_PRIVATE void tflac_update_md5_int16_planar(tflac* t, const tflac_s16** samples) {
+    tflac_u32 i = 0;
+    tflac_u32 c = 0;
+    tflac_u32 bits = (7 + t->bitdepth) & 0xF8;
+
+    for(i=0;i<t->cur_blocksize;i++) {
+        for(c=0;i<t->channels;c++) {
+            tflac_md5_addsample(&t->md5_ctx,bits,(tflac_uint)samples[c][i]);
+        }
     }
 }
 
 TFLAC_PRIVATE void tflac_update_md5_int32_planar(tflac* t, const tflac_s32** samples) {
     tflac_u32 i = 0;
     tflac_u32 c = 0;
+    tflac_u32 bits = (7 + t->bitdepth) & 0xF8;
 
     for(i=0;i<t->cur_blocksize;i++) {
         for(c=0;i<t->channels;c++) {
-            tflac_md5_addsample(&t->md5_ctx,t->bitdepth,(tflac_u32)samples[c][i]);
+            tflac_md5_addsample(&t->md5_ctx,bits,(tflac_uint)samples[c][i]);
         }
-    }
-}
-
-TFLAC_PRIVATE void tflac_update_md5_int32_interleaved(tflac* t, const tflac_s32* samples) {
-    tflac_u32 i = 0;
-
-    for(i=0;i<t->cur_blocksize * t->channels;i++) {
-        tflac_md5_addsample(&t->md5_ctx,t->bitdepth,(tflac_u32)samples[i]);
     }
 }
 
@@ -3200,7 +3349,9 @@ TFLAC_PRIVATE void tflac_cfr(tflac *t) {
         return;
     }
 
-    t->calculate_order[0](t->cur_blocksize,t->residuals[0],NULL           ,&t->residual_errors[0]);
+    if(TFLAC_LIKELY(TFLAC_U64_EQ_WORD(t->residual_errors[0],0))) {
+        t->calculate_order[0](t->cur_blocksize,t->residuals[0],NULL           ,&t->residual_errors[0]);
+    }
     t->calculate_order[1](t->cur_blocksize,t->residuals[0],t->residuals[1],&t->residual_errors[1]);
     t->calculate_order[2](t->cur_blocksize,t->residuals[0],t->residuals[2],&t->residual_errors[2]);
     t->calculate_order[3](t->cur_blocksize,t->residuals[0],t->residuals[3],&t->residual_errors[3]);
@@ -3226,6 +3377,7 @@ int tflac_encode_residuals(tflac* t, tflac_u8 predictor_order, tflac_u8 partitio
     tflac_u32 offset = predictor_order;
     tflac_u32 msb = 0;
     tflac_u32 lsb = 0;
+    tflac_u32 neg = 0;
     tflac_u32 s = t->bw.pos;
     const tflac_s32* residuals = TFLAC_ASSUME_ALIGNED(t->residuals[predictor_order], 16);
 
@@ -3249,7 +3401,7 @@ int tflac_encode_residuals(tflac* t, tflac_u8 predictor_order, tflac_u8 partitio
 
         sum = TFLAC_U64_ZERO;
         for(j=0;j<partition_length;j++) {
-            res_abs = residuals[j+offset] < 0 ? (tflac_u32)-residuals[j+offset] : (tflac_u32)residuals[j+offset];
+            res_abs = (tflac_u32)tflac_s32_abs(residuals[j+offset]);
             TFLAC_U64_ADD_WORD(sum, res_abs);
         }
 
@@ -3267,9 +3419,18 @@ int tflac_encode_residuals(tflac* t, tflac_u8 predictor_order, tflac_u8 partitio
         }
 
         for(j=0;j<partition_length;j++) {
-            v = residuals[j+offset] < 0 ?
-                (((tflac_u32) -residuals[j+offset] - 1) << 1) + 1:
-                ((tflac_u32)residuals[j+offset]) << 1;
+            /* the original version is something like:
+             * if(residuals[j+offset] < 0) {
+             *   v = residuals[j+offset] * -2 - 1;
+             * } else {
+             *   v = residuals[j+offset] * 2
+             * }
+             * instead we just find the sign bit, double
+             * the absolute value, and subtract the sign bit */
+            neg = (tflac_u32)(residuals[j+offset]) >> 31;
+            v = ((tflac_u32)tflac_s32_abs(residuals[j+offset])) << 1;
+            v -= neg;
+
             msb = (tflac_u32)(v >> rice);
             lsb = (tflac_u32)(v - (msb << rice));
 
@@ -3748,8 +3909,12 @@ int tflac_encode_s16i(tflac* t, tflac_u32 blocksize, tflac_s16* samples, void* b
     p.buffer = buffer;
     p.used = used;
     p.samples = samples;
-    p.calculate_md5 = (tflac_md5_calculator)tflac_update_md5_int16_interleaved;
     p.analyze = (tflac_sample_analyzer)tflac_analyze_samples_int16_interleaved;
+
+    switch((7 + t->bitdepth) & 0xF8) {
+        case 8:  p.calculate_md5 = (tflac_md5_calculator)tflac_update_md5_s16i_1; break;
+        case 16: p.calculate_md5 = (tflac_md5_calculator)tflac_update_md5_s16i_2; break;
+    }
 
     return tflac_encode(t, &p);
 }
@@ -3778,8 +3943,14 @@ int tflac_encode_s32i(tflac* t, tflac_u32 blocksize, tflac_s32* samples, void* b
     p.buffer = buffer;
     p.used = used;
     p.samples = samples;
-    p.calculate_md5 = (tflac_md5_calculator)tflac_update_md5_int32_interleaved;
     p.analyze = (tflac_sample_analyzer)tflac_analyze_samples_int32_interleaved;
+
+    switch((7 + t->bitdepth) & 0xF8) {
+        case 8:  p.calculate_md5 = (tflac_md5_calculator)tflac_update_md5_s32i_1; break;
+        case 16: p.calculate_md5 = (tflac_md5_calculator)tflac_update_md5_s32i_2; break;
+        case 24: p.calculate_md5 = (tflac_md5_calculator)tflac_update_md5_s32i_3; break;
+        case 32: p.calculate_md5 = (tflac_md5_calculator)tflac_update_md5_s32i_4; break;
+    }
 
     return tflac_encode(t, &p);
 }
