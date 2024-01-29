@@ -2124,7 +2124,7 @@ TFLAC_PRIVATE void tflac_cfr_order4_std(
     *residual_error = residual_err;
 }
 
-#if defined(TFLAC_ENABLE_SSE2) || defined(TFLAC_ENABLE_SSSE3)
+#if defined(TFLAC_ENABLE_SSE2) || defined(TFLAC_ENABLE_SSSE3) || defined(TFLAC_ENABLE_SSE4_1)
 
 #ifdef TFLAC_32BIT_ONLY
 #define TFLAC_SSE_ADD64(d,m) \
@@ -2132,22 +2132,16 @@ TFLAC_PRIVATE void tflac_cfr_order4_std(
         tflac_u32 u32val = ((tflac_u32)_mm_cvtsi128_si32(m)); \
         d.hi += (d.lo += u32val) < u32val; \
         d.hi += ((tflac_u32)_mm_cvtsi128_si32(_mm_shuffle_epi32(m,0x55))); \
-        u32val = ((tflac_u32)_mm_cvtsi128_si32(_mm_shuffle_epi32(m,0xAA))); \
-        d.hi += (d.lo += u32val) < u32val; \
-        d.hi += ((tflac_u32)_mm_cvtsi128_si32(_mm_shuffle_epi32(m,0xFF))); \
     } while(0)
 #else
 
 #ifdef TFLAC_X64
 #define TFLAC_SSE_ADD64(d,m) \
-    d += ((tflac_u64)_mm_cvtsi128_si64(m));\
-    d += ((tflac_u64)_mm_cvtsi128_si64(_mm_unpackhi_epi64(m,zero)));
+    d += ((tflac_u64)_mm_cvtsi128_si64(m));
 #else
 #define TFLAC_SSE_ADD64(d,m) \
     d += ((tflac_u64)_mm_cvtsi128_si32(m)); \
-    d += (((tflac_u64)_mm_cvtsi128_si32(_mm_shuffle_epi32(m,0x55))) << 32); \
-    d += ((tflac_u64)_mm_cvtsi128_si32(_mm_shuffle_epi32(m,0xAA))); \
-    d += (((tflac_u64)_mm_cvtsi128_si32(_mm_shuffle_epi32(m,0xFF))) << 32);
+    d += (((tflac_u64)_mm_cvtsi128_si32(_mm_shuffle_epi32(m,0x55))) << 32);
 #endif /* X64 */
 #endif /* 32BIT */
 
@@ -2188,6 +2182,7 @@ TFLAC_PRIVATE void tflac_cfr_order0_sse2(
         len -= 4;
     }
 
+    sum = _mm_add_epi64(sum, _mm_shuffle_epi32(sum,_MM_SHUFFLE(1,0,3,2)));
     TFLAC_SSE_ADD64(residual_err,sum);
 
     while(len--) {
@@ -2247,6 +2242,7 @@ TFLAC_PRIVATE void tflac_cfr_order1_sse2(
         len -= 4;
     }
 
+    sum = _mm_add_epi64(sum, _mm_shuffle_epi32(sum,_MM_SHUFFLE(1,0,3,2)));
     TFLAC_SSE_ADD64(residual_err,sum);
 
     while(len--) {
@@ -2314,6 +2310,7 @@ TFLAC_PRIVATE void tflac_cfr_order2_sse2(
         len -= 4;
     }
 
+    sum = _mm_add_epi64(sum, _mm_shuffle_epi32(sum,_MM_SHUFFLE(1,0,3,2)));
     TFLAC_SSE_ADD64(residual_err,sum);
 
     while(len--) {
@@ -2393,6 +2390,7 @@ TFLAC_PRIVATE void tflac_cfr_order3_sse2(
         len -= 4;
     }
 
+    sum = _mm_add_epi64(sum, _mm_shuffle_epi32(sum,_MM_SHUFFLE(1,0,3,2)));
     TFLAC_SSE_ADD64(residual_err,sum);
 
     while(len--) {
@@ -2484,6 +2482,7 @@ TFLAC_PRIVATE void tflac_cfr_order4_sse2(
         len -= 4;
     }
 
+    sum = _mm_add_epi64(sum, _mm_shuffle_epi32(sum,_MM_SHUFFLE(1,0,3,2)));
     TFLAC_SSE_ADD64(residual_err,sum);
 
     while(len--) {
@@ -2530,6 +2529,7 @@ TFLAC_PRIVATE void tflac_cfr_order0_ssse3(
         len -= 4;
     }
 
+    sum = _mm_add_epi64(sum, _mm_shuffle_epi32(sum,_MM_SHUFFLE(1,0,3,2)));
     TFLAC_SSE_ADD64(residual_err,sum);
 
     while(len--) {
@@ -2585,6 +2585,7 @@ TFLAC_PRIVATE void tflac_cfr_order1_ssse3(
         len -= 4;
     }
 
+    sum = _mm_add_epi64(sum, _mm_shuffle_epi32(sum,_MM_SHUFFLE(1,0,3,2)));
     TFLAC_SSE_ADD64(residual_err,sum);
 
     while(len--) {
@@ -2648,6 +2649,7 @@ TFLAC_PRIVATE void tflac_cfr_order2_ssse3(
         len -= 4;
     }
 
+    sum = _mm_add_epi64(sum, _mm_shuffle_epi32(sum,_MM_SHUFFLE(1,0,3,2)));
     TFLAC_SSE_ADD64(residual_err,sum);
 
     while(len--) {
@@ -2723,6 +2725,7 @@ TFLAC_PRIVATE void tflac_cfr_order3_ssse3(
         len -= 4;
     }
 
+    sum = _mm_add_epi64(sum, _mm_shuffle_epi32(sum,_MM_SHUFFLE(1,0,3,2)));
     TFLAC_SSE_ADD64(residual_err,sum);
 
     while(len--) {
@@ -2810,6 +2813,7 @@ TFLAC_PRIVATE void tflac_cfr_order4_ssse3(
         len -= 4;
     }
 
+    sum = _mm_add_epi64(sum, _mm_shuffle_epi32(sum,_MM_SHUFFLE(1,0,3,2)));
     TFLAC_SSE_ADD64(residual_err,sum);
 
     while(len--) {
@@ -2897,6 +2901,7 @@ TFLAC_PRIVATE void tflac_cfr_order2_sse4_1(
         len -= 4;
     }
 
+    sum = _mm_add_epi64(sum, _mm_shuffle_epi32(sum,_MM_SHUFFLE(1,0,3,2)));
     TFLAC_SSE_ADD64(residual_err,sum);
 
     while(len--) {
@@ -2971,6 +2976,7 @@ TFLAC_PRIVATE void tflac_cfr_order3_sse4_1(
         len -= 4;
     }
 
+    sum = _mm_add_epi64(sum, _mm_shuffle_epi32(sum,_MM_SHUFFLE(1,0,3,2)));
     TFLAC_SSE_ADD64(residual_err,sum);
 
     while(len--) {
@@ -3052,6 +3058,7 @@ TFLAC_PRIVATE void tflac_cfr_order4_sse4_1(
         len -= 4;
     }
 
+    sum = _mm_add_epi64(sum, _mm_shuffle_epi32(sum,_MM_SHUFFLE(1,0,3,2)));
     TFLAC_SSE_ADD64(residual_err,sum);
 
     while(len--) {
