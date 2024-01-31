@@ -3,6 +3,8 @@
 *.so
 *.dll
 *.exe
+*.wasm
+*.ll
 /demos/encoder/encoder
 /demos/encoder-raw/encoder-raw
 /misc/weird-wav-maker/weird-wav-maker
