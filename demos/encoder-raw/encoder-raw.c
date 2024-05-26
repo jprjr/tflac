@@ -129,6 +129,7 @@ int main(int argc, const char *argv[]) {
     t.blocksize = FRAME_SIZE;
     t.max_partition_order = 3;
     t.enable_md5 = 1;
+    t.channel_mode = TFLAC_CHANNEL_INDEPENDENT;
 
     if(strcmp(argv[1],"-") == 0) {
         input = stdin;
