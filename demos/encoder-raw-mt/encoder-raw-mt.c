@@ -155,7 +155,7 @@ void * encoder_run(void * ud) {
 
         if(ENCODE_FUNC(&e->t, *(e->frames), e->samples, e->buffer, e->bufferlen, &e->bufferused) != 0) abort();
 
-        /* we were the last thread so wake up the main thread if its waiting */
+        /* mark ourselves as complete and wake up the main thread to check status */
         encoder_atomic_int_dec(e->running);
         syscall(SYS_futex, &(e->running->val), FUTEX_WAKE, 1, 0, 0, 0);
     }
